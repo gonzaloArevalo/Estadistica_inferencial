@@ -1,0 +1,305 @@
+---
+title: "Tarea 7"
+date: "2024-04-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+```
+
+
+#1.- Observando los datos, la memorista sospecha que hay diferencias significativas en el tiempo de ejecución entre las versiones B y C del algoritmo cuando las instancias tienen 70 o más nodos. ¿Los datos respaldan la intuición de la memorista?
+#Para responder, filtren los datos para tener las instancias con 70 o más nodos y seleccionen las columnas de los tiempos de ejecución de las versiones B y C en formato ancho. Usando como semilla el valor 13, obtenga muestras aleatorias independientes de 20 tiempos registrados por la versión B y 18 tiempos registrados por la versión C del algoritmo. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario.
+```{r}
+datos <- read.csv("EP07 Datos.csv")
+
+set.seed(13)
+#seleccionamos los datos con 70 o más
+filtro <- datos$n.nodos >= 70
+df_filtrado <- datos[filtro, ]
+
+#seleccionamos datos de tiempo B
+datos_BT <- df_filtrado$tiempo.B
+
+#seleccionamos datos de tiempo C
+datos_CT <- df_filtrado$tiempo.C
+
+#se seleccionan datos aletorios, 20 para B y 18 para C
+al1 <- sample(datos_BT, 20, replace = FALSE)
+al2 <- sample(datos_CT, 18, replace = FALSE)
+
+#Ahora se verán porque no se puede usar una prueba paramétrica común, 
+#primero haremos una prueba de normalidad
+sh1 <- shapiro.test(datos_BT)
+print(sh1)
+
+#Se genera gráfico QQ para tiempo B
+ggplot(df_filtrado, aes(sample = tiempo.B)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para Tiempo B")
+
+sh2 <- shapiro.test(datos_CT)
+print(sh2)
+
+#Se genera gráfico QQ para tiempo C
+ggplot(df_filtrado, aes(sample = tiempo.C)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para Tiempo C")
+cat("Debido a que ninguna de las poblaciones alcanzo un p-value superior a 0.05, entonces ninguna sigue una distribución normal y por ende no puede ser resuelta con una prueba paramétrica.\n")
+
+cat("La prueba no paramétrica elegida es la de wilcoxon-mann-Whitney, esto se debe a que aunque se cumpla la condición de independencia entre los datos, hay ciertos criterios que podrían no aplicarse como la normalidad de datos, por ende usamos a wilcoxon como alternativa.\n")
+
+#Entonces ahora se crea la hipótesis
+#Ho: no hay diferencia significativa entre los tiempos B y C
+#Ha: existen diferencia entre alguno de los tiempos B y C
+
+cat("Esto se debe a las dos condiciones de la prueba, la primera siendo que los datos deben ser independientes entre sí, lo cual se cumple de otra forma un tiempo estaría determinado por el otro y la pregunta al inicio no tendría sentido.\n")
+cat("La segunda condición corresponde a que los datos deben de ser ordinales, esto se ve en que hay tiempos mejores que otros, por ende se pueden reorganizar en una serie de rangos, además de que el tiempo es en sí una métrica ordinal.\n")
+
+alfa <- 0.05
+
+prueba1 <- wilcox.test(al1, al2, alternative = "two.sided", conf.level = 1 -alfa)
+print(prueba1)
+cat("De la prueba de Wilcoxon podemos determinar que con un intervalo de confianza de 0.05 se rechaza la hipótesis nula en favor de la hipótesis alternativa y por ende la memorista tiene razón al sospechar que hay una diferencia significativa entre los tiempos de B y C, además como solo se están comparando dos datos no es necesario aplicar una prueba de post-hoc, puesto que ya se sabe donde ocurre la diferencia.\n")
+
+```
+
+#2.-La memorista también sospecha que, al comparar las mismas instancias de iguales características, las mejores soluciones encontradas por las versiones A y C tienen rendimientos distintos. ¿Estará en lo cierto?
+#Para responder, filtren los datos para tener las instancias con 70 o más nodos y seleccionen las columnas con el mejor rendimiento de las versiones A y C en formato ancho. Usando como semilla el valor 13, obtengan una muestra aleatoria de 24 instancias. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario.
+```{r}
+#semilla de 13
+set.seed(13)
+#obtencion de datos
+#seleccionamos los datos con 70 o más
+filt <- datos$n.nodos >= 70
+d_filtrado <- datos[filt, ]
+
+#datos A
+datos_AM <- d_filtrado$mejor.A
+#datos C
+datos_CM <- d_filtrado$mejor.C
+
+#Ahora se verá el porqué no sirve una prueba paramétrica
+#se verá la normalidad de los datos
+sh3 <- shapiro.test(datos_AM)
+print(sh3)
+
+#Se genera gráfico QQ para mejor A
+ggplot(d_filtrado, aes(sample = mejor.A)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para mejor A")
+
+sh4 <- shapiro.test(datos_CM)
+print(sh4)
+
+#Se genera gráfico QQ para mejor C
+ggplot(d_filtrado, aes(sample = mejor.C)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para mejor C")
+cat("Ambos valores de P para la prueba de Shapiro es inferior a 0.05 y por ende las muestras no siguen una distribución normal, por lo que no se puede aplicar una prueba paramétrica.\n")
+
+cat("La prueba paramétrica a utilizar es la de Wilcoxon de rangos con signo, esto se debe a que se están comparando solo dos muestras y como la normalidad no se cumple se considera que esta prueba es la que mejor aplica.\n")
+
+#Primero se enuncian las hipótesis.
+#Ho: no hay diferencias significativas entre los tiempos A y C
+#Ha: hay diferencias significativas entre los tiempos A y C
+
+cat("La primera condición representa la característica ordinal de los datos, la cual se cumple, puesto que las columnas mejor representan un porcentaje, el cual es mayor si la respuesta se acerca más al óptimo, menor para los que están más lejanos.
+Para la segunda condición se pide que los datos sean independientes entre sí, lo cual sí se cumple, puesto que el mejor. A representa la cercanía de la solución y mejor. C representa otra cercanía de la solución, pero entre ambos solo dependen de su propio algoritmo, no entre sí.
+Por último, la tercera condición pide que los datos sean continuos, al ser proporciones, estos pueden tomar cualquier valor entre enteros, por lo que se cumple esta condición.\n")
+
+#muestras de datos
+#se seleccionan datos aletorios, 20 para B y 18 para C
+al3 <- sample(datos_AM, 24, replace = FALSE)
+al4 <- sample(datos_CM, 24, replace = FALSE)
+
+#prueba de Wilcoxon
+al <- 0.05
+
+prueba2 <- wilcox.test(al3, al4, alternative = "two.sided", paired = TRUE, conf.level = 1 -al)
+print(prueba2)
+
+cat("Dado el resultado con un intervalo de confianza superior a 0.05, podemos decir que con base en el p-value obtenido no hay suficiente evidencia para rechazar la hipótesis nula, por ende no hay una diferencia significativa entre los mejores de A y C.\n")
+
+```
+
+#3.- La memorista sospecha que hay diferencias significativas en el tiempo de ejecución entre las versiones del algoritmo cuando las instancias de prueba tienen 50 o más nodos. ¿Los datos respaldan la intuición de la memorista?
+#Para responder, filtren los datos para tener las instancias con 50 o más nodos y seleccionen las columnas con los tiempos de ejecución registrados (en formato ancho). Usando como semilla el valor 54, obtengan muestras aleatorias independientes de 12, 13 y 14 tiempos registrados por las versiones A, B y C, respectivamente. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario
+```{r}
+
+set.seed(54)
+#se obtienen datos
+dat_fil <- datos$n.nodos >= 50
+dfil <- datos[dat_fil, ]
+
+#obtengo los tiempos
+datTA <- dfil$tiempo.A
+datTB <- dfil$tiempo.B
+datTC <- dfil$tiempo.C
+
+#muestras aleatorias
+al5 <- sample(datTA, 12, replace = FALSE)
+al6 <- sample(datTB, 13, replace = FALSE)
+al7 <- sample(datTC, 14, replace = FALSE)
+
+#Ahora se verá porque no se puede aplicar una prueba paramétrica
+#para ello se verá la normalidad de las variables
+
+sh5 <- shapiro.test(datTA)
+print(sh5)
+
+#Se hace gráfico QQ para tiempo A
+ggplot(dfil, aes(sample = tiempo.A)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para tiempo A")
+
+sh6 <- shapiro.test(datTB)
+print(sh6)
+
+#Se hace gráfico  QQ para tiempo B
+ggplot(dfil, aes(sample = tiempo.B)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para tiempo B")
+
+sh7 <- shapiro.test(datTC)
+print(sh7)
+
+#Se hace gráfico  QQ para tiempo C
+ggplot(dfil, aes(sample = tiempo.C)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para tiempo C")
+
+cat("Como todos los Shapiro test para un intervalo de confianza de 0.05 tuvieron un p-value inferior a este, además de los gráficos QQ podemos decir que los datos no siguen una distribución normal y por ende no se puede aplicar una prueba paramétrica.\n")
+
+cat("Dado los datos, el tiempo siendo de estilo ordinal como fue visto previamente y el hecho de que esta vez se buscan comparar tres muestras, se utilizara para ello la prueba de Kruskal-Wallis.\n")
+
+#Entonces se formulan las hipótesis
+#Ho: los tiempos no presentan diferencias significativas
+#Ha: al menos uno de los tiempos presenta una diferencia significativa con respecto a los demás
+
+
+cat("Para la primera condición que indica que las variables independientes deben tener a lo menos dos niveles, se ve que se cumple, puesto que se están evaluando tres columnas de tiempo distintas, las cuales representan a tres algoritmos distintos.\n")
+cat("Para la segunda condición, también se cumple teniendo en cuenta que la variable dependiente es el tiempo y el tiempo se puede medir en una escala ordinal.\n")
+cat("La tercera condición nos dice que los datos deben ser independientes entre sí, esto se cumple claramente, puesto que cada tiempo representa los datos para un algoritmo dado, los cuales son distintos entre ellos y por ende devolviendo datos independientes.\n")
+
+#datos para cálculo de kruskal-Wallis
+Tiempo <- c(al5,al6,al7)
+
+Algoritmo <- c(rep("tiempo.A", length(al5)),
+               rep("tiempo.B", length(al6)),
+               rep("tiempo.C", length(al7)))
+
+Algoritmo <- factor(Algoritmo)
+dato2 <- data.frame(Tiempo, Algoritmo)
+
+#nivel de significancia
+alfa2 <- 0.05
+
+prueba3 <- kruskal.test(Tiempo ~ Algoritmo, data = datos)
+print(prueba3)
+
+#p-value menor a 0.05, por lo que se realizara una prueba post-hoc
+if(prueba3$p.value < alfa2){
+  post_hoc <- pairwise.wilcox.test(dato2$Tiempo,
+                                   dato2$Algoritmo,
+                                   p.adjust.method = "fdr",
+                                   paired = FALSE)
+  print(post_hoc)
+}
+
+cat("Dado que el p-value fue inferior a 0.05 en la prueba de Kruskal-Willis, entonces se dice que se rechaza la hipótesis nula en favor de la alternativa, pero debido a que se están utilizando 3 muestras distintas se busca conocer donde se causa la diferencia de tiempos entre algoritmos, para ello se realizó una prueba de post-hoc utilizando fdr y wilcox, de aquí se concluye que existen diferencia significativa entre todos los tiempos.\n")
+
+```
+
+#4.- La memorista también sospecha que, al comparar las mismas instancias con iguales características, las mejores soluciones encontradas por las diferentes versiones del algoritmo tienen rendimientos distintos. ¿Estará en lo cierto?
+#Para responder, filtren los datos para tener las instancias con 50 o más nodos y seleccionen las columnas con los mejores rendimientos registrados. Usando como semilla el valor 54, obtengan una muestra aleatoria de 22 instancias. Realicen un análisis estadístico pertinente (enunciar hipótesis, revisar condiciones, seleccionar prueba) para responder la pregunta planteada, utilizando pruebas no paramétricas de ser necesario.
+```{r}
+set.seed(54)
+#obtencion de datos
+
+df <- datos$n.nodos >= 50
+datos3 <- datos[df, ]
+
+DMA <- datos3$mejor.A
+DMB <- datos3$mejor.B
+DMC <- datos3$mejor.C
+
+#datos aleatorios
+al8 <- sample(DMA, 22, replace = FALSE)
+al9 <- sample(DMB, 22, replace = FALSE)
+al0 <- sample(DMC, 22, replace = FALSE)
+
+#ahora se verá que no se puede aplicar una prueba paramétrica
+#para ello se verá su normalidad
+
+sh8 <- shapiro.test(DMA)
+print(sh8)
+#Ahora se verá su gráfico QQ
+ggplot(datos3, aes(sample = mejor.A)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para mejor A")
+
+sh9 <- shapiro.test(DMB)
+print(sh9)
+#Ahora se verá su gráfico QQ
+ggplot(datos3, aes(sample = mejor.B)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para mejor B")
+
+sh0 <- shapiro.test(DMC)
+print(sh0)
+#Ahora se verá su gráfico QQ
+ggplot(datos3, aes(sample = mejor.C)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para mejor C")
+
+cat("Como se puede ver en los gráficos y considerando que Shapiro test devolvió un p-value superior a 0.05, podemos decir, que las muestras no siguen una población normal y por ende no se puede aplicar una prueba paramétrica.\n")
+
+cat("Como no se puede usar una prueba paramétrica se optara por una no paramétrica, para ello se usara la prueba Friedman, puesto que es útil para comparar medianas de grupos emparejados.\n")
+
+#Ahora se formularán las hipótesis
+#Ho: los rendimientos entre los algoritmos son similares
+#Ha: al menos un algoritmo tiene un rendimiento distinto
+
+cat("Para la primera condición de Friedman, se pide que variable independiente debe ser categórica y tener tres niveles, la variable independiente corresponde a los algoritmos A, B y C, como se pueden ver son de tipo categórico y representan tres niveles distintos.\n")
+
+cat("La segunda condición dice que la escala de variable dependiente debe ser ordinal, la variable dependiente está representada por los valores de mejor resolución de los algoritmos los cuales pueden ser vistos de manera ordinal, ya que están escritos como proporciones, y aquel con proporción más alta se acerca más al óptimo.\n")
+
+cat("La tercera condición dice que las observaciones son una muestra independiente y aleatoria, como ya se vio previamente, se ha calculado unas muestra aleatorias de la población de mejores, además como estos mejores sonde de tres algoritmos distintos entonces cada mejor correspondiente a un algoritmo es independiente de los otros.\n")
+
+#Obteniendo datos para cálculo de Friedman
+muestras <- c(al8,al9,al0)
+Algoritmo2 <- c(rep("mejor.A", length(al8)),
+               rep("mejor.B", length(al9)),
+               rep("mejor.C", length(al0)))
+escala <- rep(1:22, 3)
+
+datos4 <- data.frame(escala, muestras, Algoritmo2)
+
+alfa3 <- 0.05
+
+prueba4 <- friedman.test(muestras ~ Algoritmo2|escala, data = datos4)
+print(prueba4)
+
+cat("Dado que el p-value de la prueba de Friedman fue superior al intervalo de confianza de 0.05, podemos decir que no hay suficiente evidencia para rechazar la hipótesis nula y por ende no hay diferencias significativas entre los algoritmos con respecto a cuál encuentra un mejor óptimo.\n")
+
+```
+

@@ -1,0 +1,205 @@
+---
+title: "Tarea4"
+author: "GonzaloArevalo,Javier Villegas, Jaime Riquelme"
+date: "2024-04-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!requireNamespace('ggplot2', quietly = TRUE)){
+  install.packages('ggplo2')
+}
+
+library(ggplot2)
+
+if (!requireNamespace('dplyr', quietly = TRUE)){
+  install.packages('dplyr')
+}
+
+library(dplyr)
+
+if (!requireNamespace('ggpubr', quietly = TRUE)){
+  install.packages('ggpubr')
+}
+
+library(ggpubr)
+
+if (!requireNamespace('pwr', quietly = TRUE)){
+  install.packages('pwr')
+}
+
+library(pwr)
+
+if (!requireNamespace('tidyr', quietly = TRUE)){
+  install.packages('tidyr')
+}
+library(tidyr)
+
+if (!requireNamespace('rstatix', quietly = TRUE)){
+  install.packages('rstatix')
+}
+library (rstatix)
+```
+
+
+#1.- Un grupo de científicas y científicos está llevando a cabo un experimento para evaluar el crecimiento de plantas en condiciones de tierra sintética. Inicialmente, seleccionaron aleatoriamente 25 plantas de la misma parcela de tierra y registraron su crecimiento. Luego, estas plantas fueron trasladadas a la nueva tierra sintética durante un período de tiempo determinado, y posteriormente se registró nuevamente su crecimiento. Los resultados se presentan a continuación:
+#        8 plantas mostraron un crecimiento bajo tanto en la tierra original como en la tierra sintética.
+#        2 plantas que mostraron un crecimiento bajo en la tierra original experimentaron un aumento en su crecimiento al ser trasladadas a la tierra sintética.
+#        6 plantas mantuvieron un alto nivel de crecimiento en ambas condiciones de suelo.
+#        9 plantas mostraron un alto nivel de crecimiento en la tierra original, pero este disminuyó al ser trasladadas a la tierra sintética.
+#    ¿Existe evidencia de que usando tierra sintética haya tenido un efecto significativo en el crecimiento de las plantas?
+```{r}
+# Se estudia si ocurren cambios significativos entre las respuestas del mismo sujeto de estudio en dos ocaciones distintas, siendo las variables dicotomicas, por lo que se decide efectuar una prueba McNemar
+
+#Ho: no hay cambios significativos en las respuestas
+#Ha: hay cambios significativos en las respuestas
+
+# nos otorgaremos un nivel de significancia del 5%
+planta <- seq(1:25) # <- 25 plantas como muestra
+
+#                                   tierra_original
+#                                   crecimiento_alto crecimiento_bajo Total
+# tierra_sintetica crecimiento_alto 6                2                8
+#                  crecimiento_bajo 9                8                17
+#                  Total            15               10               25
+
+tierra_original <- c(rep("crecimiento alto", 15), rep("crecimiento bajo", 10))
+tierra_sintetica <- c(rep("crecimiento alto", 6), rep("crecimiento bajo", 17), rep("crecimiento alto", 2))
+tabla <- table (tierra_sintetica , tierra_original)
+print (tabla)
+
+# Aplicar prueba de McNemar .
+prueba <- mcnemar.test(tabla)
+print(prueba)
+
+prueba$p.value
+#Debido al p-value el cual supera el alfa = 0,05, podemos decir que no existe suficiente evidencia para rechazar la hipotesis nula y por ende se conlcuye que no es posible afirmar que hay una diferencia significativa en el crecimiento de plantas entre las tierras
+
+```
+
+#2.- Un grupo de amigos y amigas se reúne para jugar juegos de mesa y tienen dos opciones: jugar ajedrez o jugar al Monopoly. Cada persona pudo manifestar su juego preferido, observando que de los 17 chicos, 8 eligen jugar ajedrez, y de las 10 chicas, 3 prefieren jugar Monopoly.
+#¿Existe relación entre el género de la persona y elegir jugar ajedrez o Monopoly?
+
+```{r}
+# se busca determinar si dos variables son independientes o estan relacionadas entre si, no obstante, se identifica que hay menos de 5 observaciones por grupo por lo que se descarta la prueba Chi-Cuadrado de independencia y se decide proceder en cambio con la Prueba exacta de Fisher
+
+#H0: No existe relacion entre el genero con el tipo de juego (Son independientes)
+#Ha: Existe relacion entre el genero y el tipo de juego (son dependientes)
+
+# Creación de vectores para representar las frecuencias de preferencias de juego por género.
+juego <- c(rep("Ajedrez", 15), rep("Monopoly", 12))
+genero <- c(rep("Chicas", 7), rep("Chicos", 8), rep("Chicas", 3), rep("Chicos", 9))
+
+# Construcción del dataframe a partir de los vectores de juego y género.
+datos <- data.frame(genero, juego)
+
+# Creación de la tabla de contingencia utilizando la función xtabs para resumir los datos.
+tabla <- xtabs(~., datos)
+
+# Impresión de la tabla de contingencia.
+print(tabla)
+
+# Se establece el nivel de significancia en 0.05 (usual en pruebas estadísticas).
+alfa <- 0.05
+
+# Ejecución de la Prueba Exacta de Fisher.
+prueba <- fisher.test(tabla, 1-alfa)
+
+# Impresión del resultado de la prueba, que incluye el p-valor, el intervalo de confianza y el odds ratio.
+print(prueba)
+
+#El p-valor reportado es de 0.4244, lo cual es mayor que el alfa de 0.05, lo que sugiere que no hay suficiente evidencia para rechazar la hipótesis nula. Por tanto, los resultados de la Prueba Exacta de Fisher indican que no hay una relación estadísticamente significativa entre el género de la persona y la elección de juego entre Ajedrez y Monopoly en este grupo de amigos.
+```
+
+
+#3.- Se realizó un estudio para determinar si la distribución de los métodos de ataque utilizados por luchadores en dos gimnasios de artes marciales diferentes (que por temas de privacidad, llamaremos gimnasio A y gimnasio B) es la misma. Se seleccionaron aleatoriamente 20 luchadores y luchadoras de cada gimnasio y se registró el método de ataque principal utilizado por cada persona. En el gimnacio A, 8 usan patadas, 5 los puños y 7 emplean agarres, mientras que en el gimnacio B, 8 usan patadas, 6 los puños y 5 emplean agarres.
+#¿Es igual la distribución de métodos de ataque utilizados por luchadores y luchadoras en los gimnasios de artes marciales A y B?
+```{r}
+
+# Se identifican 5 o más observaciones por grupo, dos variables categóricas, de estas, una variable es dicotómica, y al ser los luchadores elegidos al azar, se confirma aleatoriedad.
+# Además, se busca conocer si dos poblaciones comparten proporciones equiparables respecto a sus usos de las 3 categorías de ataque.
+# Por estas razones, se concluye que se debe realizar una prueba Chi-cuadrado de homogeneidad.
+
+#H0: La distribución de los métodos de ataque utilizados por luchadores y luchadoras es igual en los gimnasios de artes marciales A y B.
+#Ha: La distribución de los métodos de ataque utilizados por luchadores y luchadoras no es igual en los gimnasios de artes marciales A y B.
+
+# Se crean vectores con las frecuencias de métodos de ataque para cada gimnasio.
+Gimnasio_A = c(8,5,7) # Frecuencias para el Gimnasio A: 8 patadas, 5 puños, 7 agarres.
+Gimnasio_B = c(8,6,5) # Frecuencias para el Gimnasio B: 8 patadas, 6 puños, 5 agarres.
+
+# Se construye una tabla de contingencia combinando los vectores anteriores.
+tabla = as.table(rbind(Gimnasio_A,Gimnasio_B)) # La función rbind combina los vectores por fila.
+
+# Se asignan nombres a las dimensiones de la tabla para mayor claridad en la presentación de resultados.
+dimnames(tabla) = list(Gimnasios = c("Gimnasio A", "Gimnasio B"), # Nombres de filas
+                       Ataques = c("Patada","Puños","Agarres"))    # Nombres de columnas
+
+# Se imprime la tabla de contingencia.
+print(tabla)
+
+# Se realiza la prueba de chi-cuadrado de homogeneidad utilizando la tabla de contingencia.
+prueba = chisq.test(tabla)
+
+# Se imprime el resultado de la prueba de chi-cuadrado.
+print(prueba)
+
+# Con un p-valor de 0.8192, no tenemos suficiente evidencia para rechazar la H0, por lo que aceptamos la hipótesis nula. Esto indica que las distribuciones de métodos de ataque son estadísticamente similares entre los gimnasios A y B.
+
+
+```
+
+
+#4-. ¿Una agencia de marketing desea determinar si hay una diferencia significativa en la efectividad de tres estrategias publicitarias utilizadas para promocionar un nuevo producto. Para ello, se ha recopilado información de personas que fueron expuestas a las tres estrategias publicitarias, registrando si mostraron una aceptación (A) o rechazo (R) a cada una de ellas.
+#¿Qué puede concluir la agencia de marketing sobre la efectividad de las estrategias publicitarias para promover el nuevo producto? Indicación: obtenga la muestra de 50 personas a partir del archivo “EP04 Datos.csv” que se encuentra en el directorio compartido, usando la semilla 222. Considere un nivel de significación α=0,05
+```{r}
+#                Estrategia_1 Estrategia_2 Estrategia_3
+# Aceptacion (A) x            x            x
+# Rechazo (R)    x            x            x
+
+setwd("~/Descargas/Semestre 9/Estadistica_Inferencial/Tarea4")
+datos <- read.csv2("EP04Datos.csv")
+
+# valdria la pena estudiar si la proporcion de aceptacion de las estrategias es o no la misma para cada una de las tres, o existe al menos una que difiera
+# viendo ademas que se tienen dos observaciones pareadas, se concidera la viabilidad de hacer una prueba Q de cochran
+
+# condiciones:
+# variable de respuesta dicotómica
+# variable independiente categorica
+# tamaño muestra (50) * cantidad de niveles en variable independiente (3) > 24
+# observaciones se obtendran a partir de una funcion para obtener valores aleatorios por lo que seran independientes
+
+# se confirman todas las condiciones y se acepta el uso de la prueba Q de cochran
+set.seed(222)
+alfa <- 0.05
+
+#Ho: La proporcion de instancias de ventas del producto es la misma para todas las estartegias
+
+#Ha: La proporcion de instanicas de ventas del producto es distinta para al menos una estrategia
+
+#muestra aletoria de 50
+indicesrandom <- sample(1:1500, 50)
+muestra <- datos[indicesrandom, ]
+
+#se pasa a formato largo
+datos1 <- muestra %>% pivot_longer(c("estrategia_1" ,"estrategia_2" ,"estrategia_3") ,
+                                    names_to = "marketing" ,
+                                    values_to = "resultado")
+
+#cambio a factores los valores de id y marketing
+datos1[["id"]] <- factor(datos1[["id"]])
+datos1[["marketing"]] <- factor(datos1[["marketing"]])
+
+#prueba de Cochran
+prueba <- cochran_qtest(data = datos1, formula = resultado ~ marketing | id)
+
+#falta usar el 0.05 de alfa, pero a mi no me dejo instalar library ( RVAideMemoire ), entonces dejo el completo aqui por si ustedes si pueden correrlo
+#prueba <- cochran_qtest(data = datos1, formula = resultado ~ marketing | id, alfa = alfa)
+print(prueba)
+print(prueba$p)
+
+#dado el valor de p-value, como es superiror al nivel de significancia, esto significa que no hay suficente evidencia para rechazar la hipotesis nula y por ende no hay una distincion notable entre las distintas estrategias al momento de las ventas
+
+```
+

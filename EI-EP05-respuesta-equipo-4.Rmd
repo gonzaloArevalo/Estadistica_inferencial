@@ -1,0 +1,137 @@
+---
+title: "Tarea 4"
+author: "Gonzalo Arevalo, Jaime Riquelme"
+date: "2024-04-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#En una emocionante competencia de cubos Rubik, participantes de Chile, Argentina, Colombia, Uruguay, Perú y Ecuador demostraron su destreza en resolver tres tipos de cubos: 2x2x2, 3x3x3 y Megaminx.
+
+#Después del torneo, un grupo de investigadores de la Asociación Mundial del Cubo, interesado en los tiempos que hicieron las jugadoras y los jugadores en la competencia, decidieron estudiar si el país y el tipo de cubo usado en cada prueba tienen influencia en los segundos que se tardan en resolverlos. Para ello usaron una muestra aleatoria de los datos de la competencia, en la cual participaron más de 2.000 personas.
+
+```{r}
+# Cargar las librerías necesarias
+library(tidyverse)
+library(car)
+library(dplyr)
+
+# Leer los datos desde el archivo CSV
+datos <- read.csv2("EP05 Datos.csv")
+
+# Filtrar los datos para los participantes de Colombia, Ecuador y Argentina con cubos 2x2x2
+datos_filtrados <- datos %>%
+  dplyr::filter(pais %in% c("Colombia", "Ecuador", "Argentina"), tipo == "2x2x2")
+
+# Verificar la estructura de los datos filtrados
+datos_filtrados
+
+#Formulamos las hipótesis
+
+#Hipótesis nula: No existen diferencias significativas en los tiempos promedio de resolución de los cubos 2x2x2 entre los participantes de Colombia, Ecuador y Argentina.
+
+#H0: μ1 = μ2 = μ3
+
+#Donde:
+
+#μ1 es el tiempo promedio de resolución para participantes de Colombia.
+#μ2 es el tiempo promedio de resolución para participantes de Ecuador.
+#μ3 es el tiempo promedio de resolución para participantes de Argentina.
+
+#Hipótesis alternativa: 
+#Existen diferencias significativas en los tiempos promedio de resolución de los cubos 2x2x2 entre al menos dos de los grupos de participantes de Colombia, Ecuador y Argentina.
+
+#H1: Al menos dos de las medias de grupo (μ1, μ2, μ3) son diferentes.
+
+
+```
+Ahora debemos verificar que se cumplan las condiciones para el uso de ANOVA
+
+Se ve que por el enunciado que esta muestra de población fue obtenida de manera aleatoria e independiente de la población original, por lo que se cumple la segunda condición de anova.
+
+```{r}
+#verificar que la escala con que se mide la variable dependiente tiene las propiedades de una escala de intervalos iguales.
+#verificar que que la(s) población(es) de origen sigue(n) una distribución normal.
+
+#Verificamos la normalidad de los datos
+# Filtrar datos para Colombia
+datos_colombia <- datos_filtrados %>% filter(pais == "Colombia")
+
+# Realizar prueba de Shapiro-Wilk para Colombia
+shapiro_colombia <- shapiro.test(datos_colombia$tiempo)
+print(shapiro_colombia)
+
+# Generar QQ plot para Colombia
+ggplot(datos_colombia, aes(sample = tiempo)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para Colombia")
+
+
+# Filtrar datos para Ecuador
+datos_ecuador <- datos_filtrados %>% filter(pais == "Ecuador")
+
+# Realizar prueba de Shapiro-Wilk para Ecuador
+shapiro_ecuador <- shapiro.test(datos_ecuador$tiempo)
+
+print(shapiro_ecuador)
+
+# Generar QQ plot para Ecuador
+ggplot(datos_ecuador, aes(sample = tiempo)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para Ecuador")
+
+
+
+# Filtrar datos para Argentina
+datos_argentina <- datos_filtrados %>% filter(pais == "Argentina")
+
+# Realizar prueba de Shapiro-Wilk para Argentina
+shapiro_argentina <- shapiro.test(datos_argentina$tiempo)
+
+print(shapiro_argentina)
+
+# Generar QQ plot para Argentina
+ggplot(datos_argentina, aes(sample = tiempo)) +
+  geom_qq() +
+  geom_qq_line() +
+  ggtitle("QQ Plot para Argentina")
+
+
+```
+Como se puede observar en las pruebas de Shapiro-Wilk con una asunción de alfa igual a 0.05 se puede decir que los tres países siguen una distribución normal, esto se puede ver mejor en los gráficos QQ, en donde la distribución sigue a la diagonal, por lo que se comprueba la condición de distribución normal.
+Por otra parte, como los gráficos QQ representan la distribución del tiempo, se observa que se cumple la primera condición de ANOVA y que los intervalos de tiempo son consistentes entre sí.
+Luego de realizar la prueba de shapiro para cada distribución de países y probar su normalidad, ya que para cada prueba obtenemos un p > 0.05.
+
+```{r}
+#Probamos la homogeneidad de las varianzas con la prueba levene.
+
+levene_test = leveneTest(tiempo ~ pais, data = datos_filtrados )
+print(levene_test)
+
+#Como p > 0.05, comprobamos homogeneidad.
+```
+
+Como la prueba de Levene dio un valor de p superior a 0.05, podemos decir que no hay evidencia suficiente para rechazar la hipótesis nula de que las varianzas son iguales, por lo que así se comprueba la cuarta condición de ANOVA.
+Luego de comprobar todos los requerimientos para el uso de ANOVA, procedemos a realizar la prueba.
+
+```{r}
+# ANOVA
+prueba <- aov(tiempo ~ pais, data = datos_filtrados)
+print(summary(prueba))
+
+```
+La prueba ANOVA nos indica que el valor de p es inferior a nuestro alfa, por lo que rechazamos la hipótesis nula en favor de la alternativa y podemos decir con un 95% de confianza que los tiempos de solución del cubo entre los países difieren, debido al valor de p (p < 2e-16). 
+
+Por ello ahora se busca encontrar que países causan esto.
+```{r}
+#Realizamos la prueba post 
+alfa <- 0.05
+post_hoc <- TukeyHSD(prueba, "pais", conf.level = 1 - alfa)
+print(post_hoc)
+```
+
+Finalmente, para concluir, podemos decir que para el tiempo de resolución del cubo de Rubik de 2x2x2 existen diferencias, esto se nos da por la prueba de anova la cual entrega un p-value de 2e-16 dando a entender que se favorece la alternativa, luego gracias a la prueba post-hoc HSD indicamos en que países se da esta diferencia lo que servirá para crear una clasificación mejor en términos para el próximo torneo de Rubik.

@@ -1,0 +1,99 @@
+---
+title: "Tarea 6"
+date: "2024-04-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, message=FALSE, warning=FALSE, include=FALSE}
+library(tidyverse)
+library(emmeans)
+library(ez)
+library(ggpubr)
+library(nlme)
+```
+
+
+#### Un equipo de investigadores del área de interacción humano-información está estudiando si el área temática y el nivel de dificultad del problema de información influyen en el tiempo (en segundos) que toma un usuario en formular una consulta de búsqueda para resolver dicho problema. Para ello, han reclutado a un grupo de participantes voluntarios, asignados aleatoriamente a distintos grupos. Cada participante debe resolver tres problemas de información con diferentes niveles de dificultad: baja, media y alta. A su vez, cada grupo debe resolver problemas relacionados a una temática diferente. 
+
+#### En este momento, los investigadores buscan determinar si existen diferencias en el tiempo que tardan los usuarios en formular consultas para problemas con diferente nivel de dificultad en el área de economía.
+
+```{r}
+#se leen los datos
+datos <- read.csv("EP06 Datos.csv")
+
+datos2 <- datos %>% filter(area == 'Economía')
+datos2[["id"]] <- factor(datos2[["id"]])
+datos2[["dificultad"]] <- factor(datos2[["dificultad"]])
+
+#Primero vamos a establecer las hipotesis.
+#H0: el tiempo promedio de consultas para el área de economía es el mismo para todos los niveles.
+#H0: Mu1 = Mu2 = Mu3
+
+#Ha: El tiempo de consultas es diferente para al menos una dificultad en el área de economia.
+#Ha: Mu1 - Mu2 !=  0, Mu1 - Mu3 != 0, Mu2 - Mu3 != 0
+```
+
+Ahora se verificarán las siguientes condiciones:
+a.- La escala con que se mide la variable independiente tiene propiedades de intervalos iguales.
+Esta se verifica, puesto que el tiempo es una magnitud física y tiene una escala de la razón, por ende se mueve entre intervalos iguales.
+
+b.- Las mediciones son independientes al interior de cada grupo.
+Esta condición también se cumple, ya que en el enunciado nos dicen que los voluntarios se asignan aleatoriamente a sus grupos.
+
+c.- La población de origen sigue una distribución normal.
+
+d.- la matriz de varianzas-covarianzas es esferica.
+```{r}
+# Comprobamos la normalidad de las muestras con un gráfico qq.
+g = ggqqplot(datos2, 
+         x = "tiempo", 
+         y = "dificultad",
+         color = "dificultad")
+g = g + facet_wrap(~ dificultad)
+g
+
+
+#Igualmente se realiza la prueba de shapiro-wilk para cada muestra.
+#realizar prueba de shapiro-wilk para normalidad para dificultad baja.
+datos_baja <- datos2 %>% filter(dificultad == 'Baja')
+sh_baja <- shapiro.test(datos_baja$tiempo)
+print(sh_baja)
+
+#realizar prueba de shapiro-wilk para normalidad para dificultad media
+datos_media <- datos2 %>% filter(dificultad == 'Media')
+sh_media <- shapiro.test(datos_media$tiempo)
+print(sh_media)
+
+#realizar prueba de shapiro-wilk para normalidad para dificultad alta
+datos_alta <- datos2 %>% filter(dificultad == 'Alta')
+sh_alta <- shapiro.test(datos_alta$tiempo)
+print(sh_alta)
+```
+
+Aqui en base a la prueba de shapiro-Wilk y los gráficos QQ, se puede observar que se cumple la tercera condición y por ende los datos siguen una distribución normal
+
+```{r}
+#Ahora realizamos la prueba anova, como estamos trabajando con varias muestras, usaremos un nivel de significancia de 0.01
+prueba <- ezANOVA(data = datos2, dv = tiempo, within = dificultad, wid = id,  return_aov = TRUE)
+print(prueba)
+```
+
+Debido a que la prueba de Mauchly de la prueba ezANOVA es superior a 0.05 se puede concluir que se cumple la condición número cuatro de esfericidad de covarianzas.
+Ahora analizando la prueba ANOVA, observamos un p-value = 0.262, por lo que no podemos rechazar la hipótesis nula (con un 99% de confianza).
+Para este caso no sería necesario aplicar una prueba post-hoc ya que las muestras parecen ser similares, por lo que en la prueba post-hoc solo observaremos que no hay diferencias entre cada par de muestras
+
+```{r}
+#Igualmente realizamos la prueba post-hoc HSD de Tukey (ya que tiene un poder superior a las demás pruebas)
+mixto <- lme(tiempo ~ dificultad, data = datos2, random = ~1|id)
+medias <- emmeans(mixto, "dificultad")
+tukey <- pairs(medias, adjust = "tukey")
+
+#Se puede ver que todos los p-value de la prueba son mayores a 0.01
+print(tukey)
+```
+
+Para concluir, dado los resultados de la prueba HSD de tukey y los valores de la prueba de ANOVA, se dice, con un 99% de confianza, que no hay suficiente evidencia para rechazar la hipótesis nula y por ende rechazamos la hipótesis alternativa, es decir, no se aprecia una diferencia en tiempo de formular preguntas de acuerdo a la dificultad en el ámbito de economía.

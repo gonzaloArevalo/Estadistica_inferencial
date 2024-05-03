@@ -1,0 +1,120 @@
+---
+title: "Act2"
+author: "Gonzalo Arévalo, Fabián Lizama, Nicolás Sánchez"
+date: "2024-03-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#1.- El Comité Olímpico cree que el mejor tiempo medio de los atletas de oriental después de ingresar al programa de entrenamiento es superior a 14,9 segundos. ¿Soportan los datos esta afirmación?
+```{r}
+library(dplyr)
+library(ggpubr)
+
+setwd("~/Descargas/Semestre 9/Estadistica_Inferencial/Tarea2")
+datos <- read.csv2("EP02 Datos.csv")
+
+datos_previo <- filter(datos, Raza == "Oriental") %>% select(Previo)
+
+#demostrr que datos son independientes entre si
+shapiro.test(datos_previo$Previo)
+```
+```{r}
+#la hipotesis nula en base a la pregunta numero 1 es que  Ha = Ho, con Ho = 14.9, en cambio la alternativa esque Ha > Ho
+#vamos a utilizar un intervalo de confinza del 95%
+#Utilizaremos la prueba t
+# v = n-1
+valor_nulo <- 14.9
+t.test(datos_previo$Previo, alternative = "greater", mu = valor_nulo, conf.level = 1-0.05)
+
+```
+#debido a que el p-value de la prueba t es inferior al intervalode ed confianza y no cae dentro, entonces se aprueba la hipotesis alternativa en el que el promedio del tiempo de atletas es superior a 14,9 segundos
+
+#2.-¿Sugieren los datos que la mejor marca de los atletas de raza negra se reduce en promedio menos de 1,3 segundos tras el entrenamiento?
+```{r}
+datos_previo2 <- filter(datos, Raza == "Negra") %>% select(Previo)
+datos_Posterior2 <- filter(datos, Raza == "Negra") %>% select(Posterior)
+
+#verificamos que sigan una distribucion normal para Posterior
+shapiro.test(datos_Posterior2$Posterior)
+#distribucion normal para previo
+shapiro.test(datos_previo2$Previo)
+
+#ya con un valor P-value superiror a una significacion de 0,05 continuamos a el calculo de uan distribucion
+
+#se utiliza una distribucion pareada para verificar los cambios entre previo y posterior
+#para ello se daran dos hipotesis coniderando que se indica que el promedio se reduce en 1,3
+#Ho = Ha
+#Ho > Ha
+alfa <-0.05
+
+Dif <- datos_previo2$Previo - datos_Posterior2$Posterior
+shapiro.test(Dif)
+
+Test <- t.test(x = datos_Posterior2$Posterior,
+               y = datos_previo2$Previo,
+               paired = TRUE,
+               alternative = "less",
+               mu = 1.3,
+               conf.level = 1 - alfa)
+print(Test)
+#resta d dos medias la de previo y posterior
+```
+
+#3.-¿Es posible afirmar que, en promedio, los atletas de raza negra superaban a los de raza oriental por más de 5,8 segundos antes del entrenamiento?
+```{r}
+#obtengo los previos de los primeros atletas
+dt_N_Prev <- filter(datos, Raza == "Negra") %>% select(Previo)
+
+dt_O_Prev <- filter(datos, Raza == "Oriental") %>% select(Previo)
+
+#aplico shapiro test para ambos y verificar su normalidad
+shapiro.test(dt_N_Prev$Previo)
+
+#para los segundos
+shapiro.test(dt_O_Prev$Previo)
+
+alfa2 <- 0.05
+T2 <- t.test(x = dt_O_Prev$Previo,
+             y = dt_N_Prev$Previo,
+             paired = FALSE,
+             alternative = "greater",
+             mu = 5.8,
+             conf.level = 1 - alfa2)
+print(T2)
+
+```
+
+#4.-¿Será cierto que hay más atletas de raza oriental que redujeron sus mejores marcas en al menos 4,8 segundos que atletas de raza blanca que lo hicieron en al menos 3,2 segundos?
+```{r}
+#para la resolucion de esto se utilizara el metodo de Wilson prop.test
+#establecemos valores fijos
+#se considera que la hipotesis nula implica que no hay un cambio notable entre asiaticos y blnacos, mientras que la alternativa inidca que si hay
+#Ho = Ha
+#Ho < Ha
+dt_O <- filter(datos, Raza == "Oriental") %>% select(Previo, Posterior)
+N_O <- nrow(dt_O)
+
+dt_B <- filter(datos, Raza == "Blanca") %>% select(Previo, Posterior)
+N_B <- nrow(dt_B)
+
+#reduccion Orientales
+Red_O <- dt_O[dt_O$Previo - dt_O$Posterior >= 4.8, ]
+#cantidad de reducciones
+NRedO <- nrow(Red_O)
+
+#reduccion Blanca
+Red_B <- dt_B[dt_B$Previo - dt_B$Posterior >= 3.2, ]
+#cantidad de reducciones
+NRedB <- nrow(Red_B)
+
+AciertosO <- c(NRedO, NRedB)
+AciertosB <- c(N_O, N_B)
+
+prop.test(AciertosO, AciertosB, alternative = "greater", conf.level = 1 - alfa)
+
+```
+

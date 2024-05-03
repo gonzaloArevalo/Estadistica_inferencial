@@ -1,0 +1,229 @@
+---
+title: "Tarea 3"
+author: "Javier Villegas G, Gonzalo Arévalo, Jaime Riquelme"
+date: "2024-04-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+if (!requireNamespace('ggplot2', quietly = TRUE)){
+  install.packages('ggplo2')
+}
+
+library(ggplot2)
+
+if (!requireNamespace('dplyr', quietly = TRUE)){
+  install.packages('dplyr')
+}
+
+library(dplyr)
+
+if (!requireNamespace('ggpubr', quietly = TRUE)){
+  install.packages('ggpubr')
+}
+
+library(ggpubr)
+
+if (!requireNamespace('pwr', quietly = TRUE)){
+  install.packages('pwr')
+}
+
+library(pwr)
+```
+
+#### En una planta química hay dos máquinas que envasan detergentes industriales en bidones con un volumen de producto que sigue una distribución normal con desviación estándar de 1 litro. La ingeniera a cargo de la planta debe asegurar que los bidones se están llenando con una media de 10 litros. Pero ella tiene la sospecha de que hay desviaciones en esta media, lo que piensa confirmar usando una muestra aleatoria de 100 envases (50 de cada una de las máquinas). También cree que hay diferencia en el cumplimiento del volumen requerido entre la máquina más antigua y la más moderna, que han de andar por el 90% y 96% de los bidones, respectivamente.
+
+Equipo 4:
+
+# 1.- Si la ingeniera piensa rechazar la hipótesis nula cuando la muestra presente una media menor a 9,82 litros o mayor a 10,25 litros, ¿cuál es la probabilidad de que cometa un error de tipo I? Para responder, generen un gráfico de la distribución muestral de las medias hipotetizada en donde se marquen las zonas correspondientes a la probabilidad solicitada, para luego, basándose en este gráfico, calcular el área correspondiente. Tome como ejemplo los scripts presentados en la lectura sobre poder estadístico.
+
+```{r}
+# Establecemos la hipótesis nula y alternativa basándonos en nuestra expectativa de que la media del volumen de llenado sea de 10 litros.
+# Hipótesis nula (Ho): mu = 10, lo que significa que la media de llenado de bidones es exactamente 10 litros.
+# Hipótesis alternativa (Ha): mu != 10, implicando que la media de llenado es diferente de 10 litros, específicamente, es menor que 9.82 litros o mayor que 10.25 litros.
+
+# Definimos los parámetros necesarios para realizar nuestra prueba estadística:
+# El intervalo de confianza está entre 9.82 y 10.25 litros, basado en la sospecha de la ingeniera.
+media_nula = 10  # La media bajo la hipótesis nula, esperamos que sea 10 litros.
+sigma = 1  # La desviación estándar conocida del volumen de llenado es de 1 litro.
+n = 100  # Tamaño de la muestra, que incluye 50 envases de cada una de las dos máquinas.
+
+# Calculamos el Error Estándar de la media (SE) para entender cuánto se espera que varíe la media de nuestras muestras.
+SE = sigma / sqrt(n)  
+
+# Determinamos las áreas bajo la curva normal que corresponden a las colas fuera de nuestro intervalo de confianza.
+# Estas áreas representan la probabilidad de cometer un error de Tipo I, es decir, rechazar la Ho cuando en realidad es verdadera.
+alfa1 = pnorm(9.82, mean = 10, sd = SE, lower.tail = TRUE)  
+alfa2 = pnorm(10.25, mean = 10, sd = SE, lower.tail = FALSE)  
+
+# Probabilidad total de cometer un error de Tipo I.
+alfaT = alfa1 + alfa2
+
+# Imprimimos la probabilidad total de error Tipo I para informar nuestra decisión.
+alfaT
+
+# Preparamos un gráfico para visualizar la distribución muestral de las medias bajo la hipótesis nula y las áreas críticas.
+g_x_limites <- c(9.5, 10.7) 
+g <- ggplot() + xlim(g_x_limites)  
+g <- g + labs(X = "x", Y = "y")  
+g <- g + theme_pubr()  
+
+# Añadimos al gráfico la distribución normal representando la hipótesis nula, con su media y SE.
+dist_0 <- stat_function(fun = dnorm, args = list(mean = media_nula, sd = SE), geom = "area", colour = "red", fill = "red", alpha = 0.1)
+
+# Integramos la distribución a nuestro gráfico base.
+g1 <- g + dist_0
+g1 <- g1 + geom_vline(xintercept = media_nula, colour = "red")  # Marcamos la media nula con una línea vertical.
+
+# Resaltamos las áreas bajo la curva que corresponden a las probabilidades de error Tipo I.
+g2 <- g1 + stat_function(fun = dnorm, 
+                         args = list(mean = media_nula, sd = SE), 
+                         geom = "area", 
+                         xlim = c(g_x_limites[1], 9.82), 
+                         fill = "red")
+g2 <- g2 + stat_function(fun = dnorm, 
+                         args = list(mean = media_nula, sd = SE), 
+                         geom = "area", 
+                         xlim = c(10.25, g_x_limites[2]), 
+                         fill = "red")
+
+# Mostramos el gráfico final con las áreas críticas destacadas, lo cual nos ayuda a visualizar dónde se encuentra la probabilidad de cometer un error de Tipo I.
+g2
+
+
+#La probabilidad de cometer un error de Tipo I, que es rechazar la hipótesis nula cuando en realidad es cierta, es aproximadamente de 4.21%. Esto indica que si las máquinas están llenando los bidones con un promedio de 10 litros, existe una pequeña probabilidad de que, basándonos en nuestra muestra, concluyamos erróneamente que no cumplen con las especificaciones establecidas.
+
+
+```
+
+# 2.- Si el verdadero volumen medio de los bidones fuera de 10,3 litros, ¿cuál sería la probabilidad de que la ingeniera, que obviamente no conoce este dato, cometa un error de tipo II? Para responder, agregue al gráfico anterior la verdadera distribución muestral de las medias y marquen (con otro color) la zona correspondiente a la probabilidad solicitada, para luego, basándose en este gráfico, calcular el área correspondiente. También hay ejemplos de este procedimiento en la lectura sobre poder estadístico.
+
+```{r}
+
+# Ahora consideramos el caso en el que el verdadero volumen medio de los bidones es de 10.3 litros, 
+# una situación que desconocemos y queremos estimar la probabilidad de no detectar esta diferencia 
+# respecto a la hipótesis nula, es decir, el riesgo de cometer un error de Tipo II.
+
+# Definimos la verdadera media en 10.3 litros, que es la media que sospechamos podría ser la real.
+media_verdadera = 10.3
+
+# Añadimos al gráfico una nueva distribución normal centrada en la verdadera media con el mismo SE.
+dist_v <- stat_function(fun = dnorm, args = list(mean = media_verdadera, sd = SE), geom = "area", colour = "blue", fill = "blue", alpha = 0.1)
+
+# Incorporamos esta distribución al gráfico que ya incluye las regiones críticas bajo la hipótesis nula.
+g3 <- g2 + dist_v
+g3 <- g3 + geom_vline(xintercept = media_verdadera, colour = "blue")  
+
+# Resaltamos en azul la zona bajo la curva de la verdadera distribución que cae dentro del intervalo de confianza.
+# Esta área corresponde a la probabilidad de no rechazar la Ho cuando deberíamos hacerlo, debido a que la verdadera media es 10.3 litros.
+g3 <- g3 + stat_function(fun = dnorm,
+                         args = list(mean = media_verdadera, sd = SE),
+                         geom = "area",
+                         xlim = c(9.82, 10.25),
+                         fill = "blue")
+
+# Visualizamos el gráfico final con las dos distribuciones y las zonas críticas bien definidas.
+g3
+
+# Calculamos la probabilidad de cometer un error de Tipo II, que es la probabilidad de que la muestra esté 
+# dentro del intervalo de confianza aunque la verdadera media sea 10.3 litros.
+betaT = pnorm(10.25 , mean = 10.3, sd = SE, lower.tail = TRUE) - pnorm(9.82 , mean = 10.3, sd = SE, lower.tail = TRUE)
+
+# Imprimimos el valor de betaT para determinar qué tan grande es el riesgo de no detectar una media real de 10.3 litros.
+betaT
+
+#La probabilidad de que la ingeniera cometa un error de Tipo II, no detectando que el volumen medio real de los bidones es de 10.3 litros, es del 30.85%.
+
+```
+
+# 3.- Como no se conoce el verdadero volumen medio, genere un gráfico del poder estadístico con las condiciones anteriores, pero suponiendo que el verdadero volumen medio podría variar de 9,4 a 10,4 litros. Hay un ejemplo de este tipo de gráfico en la lectura sobre poder estadístico.
+
+```{r}
+library(ggpubr)
+library(pwr)
+
+# Definimos los valores para nuestra hipótesis y parámetros de la prueba estadística.
+alfa <- 0.05
+n <- 88  # Tamaño de muestra obtenido de cálculos anteriores para un poder de 0.8.
+media_nula <- 10  
+sigma <- 1  
+
+# Establecemos un rango de medias verdaderas dentro del intervalo de interés.
+medias_verdaderas <- seq(9.82, 10.25, by = 0.01)
+deltas <- medias_verdaderas - media_nula
+deltas_norm <- deltas / sigma
+
+# Calculamos el poder estadístico para una prueba Z bilateral.
+poder <- sapply(deltas_norm, function(x) {
+  pwr.norm.test(d = x, n = n, sig.level = alfa, alternative = "two.sided")$power
+})
+
+# Creamos un data frame para el gráfico.
+datos_grafico <- data.frame(media_verdadera = medias_verdaderas, Poder = poder)
+
+# Generamos el gráfico de poder estadístico.
+g <- ggplot(datos_grafico, aes(x = media_verdadera, y = Poder)) +
+  geom_line() +
+  labs(x = "Media Verdadera", y = "Poder Estadístico",
+       title = "Poder Estadístico en Función de la Media Verdadera del Volumen de Llenado") +
+  theme_minimal()
+
+# Mostramos el gráfico.
+print(g)
+
+#El gráfico muestra que el poder estadístico es más bajo cerca de la media de la hipótesis nula de 10 litros y aumenta tanto para valores más altos como más bajos. Esto implica una mayor capacidad de la prueba para detectar diferencias significativas del valor hipotético a medida que la media verdadera se aleja de 10 litros.
+```
+
+# 4.- Considerando un volumen medio de 10 litros, ¿cuántos bidones deberían revisarse para conseguir un poder estadístico de 0,8 y un nivel de significación de 0,05?
+
+```{r}
+# Calculamos el tamaño del efecto (d1) basado en la diferencia entre la media verdadera y la hipotética.
+d1 = (media_verdadera - media_nula) / sigma
+
+# Fijamos el nivel de significancia en 0.05 y el poder estadístico deseado en 0.8.
+siglevel = 0.05
+power = 0.8
+
+# Definimos que la prueba será de dos colas, ya que buscamos diferencias en ambas direcciones de la media.
+alternative = "two.sided"
+
+# Usamos pwr.norm.test para determinar el número necesario de bidones a revisar para el poder y significancia dados.
+pwr.norm.test(d = d1 ,n = NULL, sig.level = siglevel, power = power, alternative = alternative)
+
+# Para alcanzar un poder estadístico de 0.8 y mantener el nivel de significancia en 0.05, deberíamos revisar aproximadamente 88 bidones.
+```
+
+# 5.- ¿Alcanzaría esta muestra para detectar la diferencia que la ingeniera sospecha que existe entre las dos máquinas de la planta con las mismas probabilidades de cometer errores?
+
+```{r}
+
+# problema de probabilidad
+
+# ingeniera piensa que
+# maquina vieja = 90% exito = Pv
+# maquina nueva = 96% exito = Pn
+
+#con n = 88
+hCohen = ES.h(0.9,0.96)
+
+#dado las teoria impuesta por la ingeniera al principio esto constiuye dos hipotesis
+#Ho: la hipotesis nula es que para una muestra de 88 bidones con 44 de cada uno ambas probabilidades son similares, es decir, Pv = Pn
+#Ho: Pn = Pv
+
+#Ha: la hipotesis alternativa es que para 88 instancias que se reparen en 44 de viejas y 44 de nuevas, la probabilidad de nuevas es superior a la probabilidad de cargar bidones con la vieja, es decir, Pn > Pv
+#Ha: Pn > Pv
+
+#como n = 88, n/2 = 44 por lo que se utilizara la prueba pwr.2p.test para dos muestras de igual tamaño
+#buscamos obtener la potencia de esta para poder corroborar los datos
+muestras <- pwr.2p.test(h = hCohen, n = 88, alternative = "greater", sig.level = 0.05)
+
+print(muestras)
+print(muestras$power)
+
+#Dado la prueba de poder para dos muestras de igual tamaño se tiene que el poder observado es de 0.00059 lo que se traduce como 0,059% y aproximado es de 0,06%, por lo que se concluye que el poder es muy bajo y solo posee un 0,06% de exito de detectar la diferencia de la hipotesis alternativa
+
+```
+
+

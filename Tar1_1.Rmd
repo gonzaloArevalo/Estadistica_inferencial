@@ -1,0 +1,56 @@
+---
+title: "Tar.1.1"
+output: html_document
+date: "2024-03-20"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+# Instalar paquetes si aún no están instalados
+if (!requireNamespace("readr", quietly = TRUE)) {
+    install.packages("readr")
+}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+    install.packages("dplyr")
+}
+
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    install.packages("ggplot2")
+}
+
+# Cargar los paquetes necesarios
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+# Definir la ruta del archivo
+archivo <- "D:/Nobel/u/Estadistica inferencial/ejercicios/EP01 Datos Casen 2017.csv"
+
+# Leer los datos del archivo CSV
+datos <- read.csv2(archivo, sep = ';')  # Esta es la función de base R para leer archivos CSV
+
+# El resto del código se mantiene igual
+datos_filtrados <- filter(as_tibble(datos), sexo == 'Mujer', edad > 18) 
+
+# Calcular la media de ytot para cada edad
+#medias_por_edad <- datos_filtrados %>%
+#  group_by(edad) %>%
+#  summarise(media_ytot = mean(ytot, na.rm = TRUE))  # Reemplaza 'ytot' por tu variable de interés
+
+# Crear un gráfico de estas medias
+# Crear un diagrama de dispersión de ingresos frente a la edad
+ggplot(datos_filtrados, aes(x = edad, y = ytot)) +  # Asegúrate de que 'ytot' es tu columna de ingresos
+  geom_point(alpha = 0.5) +  # El valor alpha hace los puntos semi-transparentes
+  labs(title = "Diagrama de Dispersión de Ingresos vs. Edad",
+       x = "Edad",
+       y = "Ingresos Totales") +
+  theme_minimal()
+
+
+```
+
