@@ -1,0 +1,37 @@
+library ( tidyverse )
+library ( R VAide Memoire )
+1273
+library ( rcompanion )
+
+# Crear matriz de datos .
+instancia <- 1:15
+annealing <- c (0 , 1 , 0 , 0 , 0 , 0 , 0 , 1 , 0 , 0 , 0 , 0 , 1 , 0 , 0)
+hormigas <- c (0 , 0 , 1 , 0 , 0 , 1 , 0 , 0 , 0 , 1 , 0 , 0 , 0 , 0 , 1)
+genetico <- c (1 , 0 , 1 , 1 , 1 , 1 , 0 , 1 , 0 , 1 , 1 , 0 , 0 , 1 , 1)
+ datos <- data.frame ( instancia , annealing , hormigas , genetico )
+
+# Llevar matriz de datos a formato largo .
+datos <- datos %> % pivot _ longer ( c ( " annealing " , " hormigas " , " genetico " ) ,
+names_to = " metaheuristica " ,
+values_to = " resultado " )
+
+datos [[ " instancia " ]] <- factor ( datos [[ " instancia " ]])
+datos [[ " metaheuristica " ]] <- factor ( datos [[ " metaheuristica " ]])
+
+# Hacer prueba Q de Cochran .
+prueba <- cochran.qtest ( resultado ~ metaheuristica | instancia ,
+data = datos , alpha = 0.05)
+
+print ( prueba )
+# Pr ocedi miento post - hoc con correcci ó n de Bonferroni .
+post_hoc_1 <- pairwiseMcnemar ( resultado ~ metaheur istica | instanc ia ,
+
+data = datos , method = " bonferroni " )
+
+cat ( " \ n P ro ced imiento post - hoc con correcci ó n de Bonferroni \ n " )
+print ( post_hoc_1)
+# Pr ocedi miento post - hoc con correcci ó n de Holm .
+post_hoc_2 <- pairw iseMcnemar ( resultado ~ metaheur istica | instanc ia ,
+data = datos , method = " holm " )
+cat ( " \ n P ro ced imiento post - hoc con correcci ó n de Holm \ n " )
+print ( post_hoc_2)
