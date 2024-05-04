@@ -1,0 +1,41 @@
+library ( ggpubr )
+library ( pwr )
+3 library ( tidyr )
+1
+2
+4
+# Valores hip ó tesis .
+alfa <- 0.05
+7 poder <- 0.90
+5
+6
+8
+# Valores L *.
+media _ L <- 60
+11 sigma _ L <- sqrt (144)
+9
+10
+12
+# Valores M *.
+media _ M <- 70
+15 sigma _ M <- sqrt (196)
+13
+14
+16
+# Tama ñ o del efecto .
+delta <- media _ L - media _ M
+19 sigma <- sqrt (2 * ( sigma _ L ^2 + sigma _ M ^2) )
+20 delta _ norm <- delta / sigma
+17
+18
+21
+# Tama ñ o total de la muestra
+factores <- pwr . norm . test ( d = delta _ norm , sig . level = alfa ,
+24
+power = poder , alternative = " less " )
+25 print ( factores )
+22
+23
+26
+27
+cat ( " N ú mero total de obs ervaciones : " , ceiling ( factores [[ " n " ]]) , " \ n " )

@@ -1,0 +1,39 @@
+library ( effsize )
+library ( pwr )
+
+muestra _ L <- c (50916.01 ,61396.89 ,69704.93 ,61133.57 ,79657.66 ,69883.13 ,
+68274.39 ,72907.14 ,73718.12 ,57702.44 ,52530.76 ,62638.55 ,60212.33 ,55807.43 ,
+70488.12 ,79472.14 ,64012.86 ,87312.34 ,57973.14 ,61142.34 ,61836.25 ,69546.98 ,
+75995.01 ,47351.77 ,74787.28 ,61986.08 ,71255.53 ,56296.91 ,53014.13 ,66807.14)
+n _ L <- length ( muestra _ L )
+
+muestra _ M <- c (95075.86 ,
+41772.91 ,
+73996.43 ,
+69378.84 ,
+98258.72 ,
+64758.71 , 80269.73 , 74365.69 , 86104.68 ,
+116915.74 , 33103.66 , 61553.61 , 55498.1 ,
+101619.51 , 61037.45 , 53973.06 , 65523.67 ,
+80254.29 , 84242.37 , 91978.80 , 73853.76 ,
+61785.34 , 59753.93 , 66855.87 , 101783.46)
+n _ M <- length ( muestra _ M )
+
+# Obtener tama ñ o del efecto .
+tdf <- cohen . d ( muestra _L , muestra _ M )
+ cat ( " Tama ñ o del efecto :\ n " )
+ print ( tdf )
+
+
+
+# Obtener poder de la prueba realizada .
+d <- tdf [[ " estimate " ]]
+alfa <- 0.05
+valor _ nulo <- 10
+factores <- pwr . t2n . test ( n1 = n _L , n2 = n _M , d = d , sig . level = alfa ,
+
+alternative = " less " )
+ cat ( " Factores ::\ n " )
+ print ( factores )
+# Mostar beta
+cat ( " Beta : " , 1 - factores [[ " power " ]] , " \ n " )
