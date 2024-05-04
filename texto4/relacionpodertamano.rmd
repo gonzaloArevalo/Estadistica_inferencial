@@ -1,0 +1,56 @@
+library ( ggpubr )
+library ( pwr )
+3 library ( tidyr )
+1
+2
+4
+# Valores hip ó tesis .
+alfa <- 0.05
+7 n <- 36
+8 media _ nula <- 60
+
+sigma <- 12
+10
+# Tama ñ os del efecto .
+medias _ verdaderas <- seq (50 , 70 , 0.01)
+13 deltas <- medias _ verdaderas - media _ nula
+14 deltas _ norm <- deltas / sigma
+11
+12
+15
+# Calcular poder de la prueba Z bilateral .
+f _ b <- function ( x ) pwr . norm . test (x , n = n , sig . level = alfa ,
+18
+alternative = " two . sided " ) [[ " power " ]]
+19 poder _ bilat <- sapply ( deltas _ norm , f _ b )
+16
+17
+20
+# Calcular poder de la prueba Z con hip ó tesis
+# alternativa unilateral tipo " less ".
+23 f _ u <- function ( x ) pwr . norm . test (x , n = n , sig . level = alfa ,
+24
+alternative = " less " ) [[ " power " ]]
+25 poder _ unilat <- sapply ( deltas _ norm , f _ u )
+21
+22
+26
+# Graficar estas curvas
+datos _ anchos <- data . frame ( deltas , poder _ bilat , poder _ unilat )
+29 datos _ largos <- datos _ anchos
+%> %
+30
+pivot _ longer ( - deltas , names _ to = " Tipo " , values _ to = " Poder " )
+31 datos _ largos [[ " Tipo " ]] <- factor ( datos _ largos [[ " Tipo " ]] ,
+32
+labels = c ( " Bilateral " , " Unilateral " ) )
+33 g <- ggline ( datos _ largos , x = " deltas " , y = " Poder " ,
+34
+color = " Tipo " ,
+35
+numeric . x . axis = TRUE , plot _ type = " l "
+36 )
+37 g <- g + labs ( x = " Delta [ s ] " )
+38 g <- g + labs ( title = " Relaci ó n entre poder y tama ñ o del efecto " )
+39 g <- ggpar (g , legend = c (.85 , .35) )
+40 print ( g )
