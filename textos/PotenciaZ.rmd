@@ -1,0 +1,164 @@
+library ( ggpattern )
+library ( ggplot2 )
+library ( ggpubr )
+
+# Valores conocidos .
+alfa <- 0.05
+n <- 36
+
+# Valores supuestos por Lola .
+media_nula <- 60
+sigma <- 12
+# Calcular el error est á ndar .
+SE <- sigma / sqrt ( n )
+
+# Gr á ficar la distribuci ó n muestral de las medias si la hip ó tesis
+# nula fuera verdadera .
+
+# Primero , el gr á fico base
+g _ x _ limites <- media_nula + c ( -6 , 5) * SE
+g <- ggplot () + xlim (g_x_limites )
+g <- g + labs ( x = " Tiempo de ejecuci ó n [ s ] " , y = " Densidad " )
+g <- g + labs ( title = " Distribuci ó n muestral de las medias " )
+g <- g + theme_pubr ()
+
+# Agregamos la hip ó tesis nula
+dist_0 <- stat _ function ( fun = dnorm ,
+args = list ( mean = media _ nula , sd = SE ) ,
+geom = " area " ,
+colour = " red " , fill = " red " , alpha = 0.1)
+g1 <- g + dist_0
+g1 <- g1 + geom_vline ( xintercept = media_nula , colour = " red " )
+
+
+
+# Calcular las regiones cr í ticas de la hip ó tesis nula .
+z_critico_inferior <- qnorm ( alfa /2 , mean = media_nula , sd = SE , lower.tail = TRUE )
+z_critico_superior <- qnorm ( alfa /2 , mean = media_nula , sd = SE , lower.tail = FALSE )
+
+
+
+# Colorear regiones de rechazo en el gr á fico y el valor nulo .
+g2 <- g1 + stat _ function ( fun = dnorm ,args = list ( mean = media _ nula , sd = SE ) ,
+geom = " area " ,xlim = c ( g _ x _ limites [1] , z _ critico _ inferior ) ,
+
+fill = " red " , alpha = 0.6)
+g2 <- g2 + stat _ function ( fun = dnorm ,args = list ( mean = media _ nula , sd = SE ) ,
+geom = " area " ,xlim = c ( z _ critico _ superior , g _ x _ limites [2]) ,fill = " red " , alpha = 0.6)
+print ( g2 )
+
+# Valores vervaderos desconocidos por Lola .
+media _ verdadera <- 55.8
+delta <- media _ nula - media _ verdadera
+51
+52
+54
+# Agregar la verdadera distribuci ó n muestral de las med ias .
+dist _ v <- stat _ function ( fun = dnorm ,
+57
+args = list ( mean = media _ verdadera , sd = SE ) ,
+58
+geom = " area " ,
+59
+colour = " blue " , fill = " blue " , alpha = 0.1)
+60 g3 <- g2 + dist _ v + geom _ vline ( xintercept = media _ verdad era , colour = " blue " )
+55
+56
+61
+# Agrega anotaci ó n del tama ñ o del efecto
+x _ ann <- c ( media _ verdadera , media _ nula )
+64 y _ ann <- c ( dnorm ( media _ verdadera , mean = media _ verdadera , sd = SE ) ,
+65
+dnorm ( media _ nula , mean = media _ nula , sd = SE ) )
+66 y _ ann <- y _ ann + 0.01
+67 g3 <- g3 + annotate ( " segment " , x = x _ ann [1] , y = y _ ann [1] ,
+68
+xend = x _ ann [2] , yend = y _ ann [2] ,
+69
+arrow = arrow ( angle = 10 , length = unit (0.03 , " npc " ) ,
+70
+ends = " both " , type = " open " ) )
+71 g3 <- g3 + annotate ( " text " , x = sum ( x _ ann ) / 2 , y = y _ ann [1] - 0.001 ,
+72
+label = " delta " , vjust = " top " , parse = TRUE )
+print ( g3 )
+74
+# Traspasar las regiones cr í ticas a la verdadera distri buci ó n muestral
+# de las medias .
+77 g4 <- g + dist _0 + dist _ v
+78 g4 <- g4 + stat _ function ( fun = dnorm ,
+79
+args = list ( mean = media _ verdadera , sd = SE ) ,
+80
+geom = " area " ,
+81
+xlim = c ( g _ x _ limites [1] , z _ critico _ inferior ) ,
+82
+fill = " blue " , alpha = 0.6)
+83 g4 <- g4 + stat _ function ( fun = dnorm ,
+84
+args = list ( mean = media _ verdadera , sd = SE ) ,
+85
+geom = " area " ,
+86
+xlim = c ( z _ critico _ superior , g _ x _ limites [2]) ,
+87
+fill = " blue " , alpha = 0.6)
+88 g4 <- g4 + stat _ function ( fun = dnorm ,
+89
+args = list ( mean = media _ verdadera , sd = SE ) ,
+90
+geom = " area _ pattern " ,
+91
+xlim = c ( z _ critico _ inferior , z _ critico _ superior ) ,
+92
+fill = " white " , colour = " blue " , alpha = 0.3 ,
+93
+pattern _ spacing = 0.15 , pattern _ density = 0.4 ,
+94
+pattern _ fill = " blue " , pattern _ colour = " blue " ,
+95
+pattern _ angle = 45 , pattern _ alpha = 0.3)
+96 # Agrega anotaci ó n del poder
+97 g4 <- g4 + annotate ( " text " , x = 50 , y = 0.1 , label = " poder [ inf ] " ,
+98
+vjust = " top " , parse = TRUE )
+99 g4 <- g4 + annotate ( " text " , x = 67 , y = 0.04 , label = " poder [ sup ] " ,
+100
+vjust = " top " , parse = TRUE )
+101 g4 <- g4 + annotate ( " text " , x = sum ( x _ ann ) / 2 , y = y _ ann [1] - 0.01 ,
+102
+label = " beta " , vjust = " top " , parse = TRUE )
+103 g4 <- g4 + annotate ( " segment " , x = 50 , y = 0.087 , xend = 52.5 , yend = 0.02 ,
+104
+arrow = arrow ( angle = 10 , length = unit (0.03 , " npc " ) ,
+105
+ends = " last " , type = " open " ) )
+106 g4 <- g4 + annotate ( " segment " , x = 66.5 , y = 0.027 , xend = 65.5 , yend = 0.001 ,
+107
+arrow = arrow ( angle = 10 , length = unit (0.03 , " npc " ) ,
+108
+ends = " last " , type = " open " ) )
+109 g4 <- g4 + annotate ( " segment " , x = sum ( x _ ann ) / 2 , y = y _ ann [1] - 0.023 ,
+110
+xend = 57 , yend = 0.10 ,
+111
+arrow = arrow ( angle = 10 , length = unit (0.03 , " npc " ) ,
+112
+ends = " last " , type = " open " ) )
+113 print ( g4 )
+# Calcular el poder .
+poder _ inf <- pnorm ( z _ critico _ inferior , mean = media _ verdadera , sd = SE ,
+117
+lower . tail = TRUE )
+118 poder _ sup <- pnorm ( z _ critico _ superior , mean = media _ verdadera , sd = SE ,
+119
+lower . tail = FALSE )
+120 poder <- poder _ inf + poder _ sup
+121 cat ( " Poder = " , poder , " \ n " )
+115
+116
+122
+# Calcular la probabilidad de cometer un error tipo II .
+beta <- 1 - poder
+125 cat ( " Beta = " , beta , " \ n " )
