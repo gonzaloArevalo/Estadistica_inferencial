@@ -1,0 +1,46 @@
+---
+title: "T_dospareadsa"
+output: html_document
+date: "2024-05-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+instancia <- seq(1, 35, 1)
+
+t_A <- c(411, 393, 445, 411, 498,
+            388, 430, 469, 409, 442,
+            418, 408, 463, 407, 516)
+
+t_B <- c(405, 383, 467, 435, 487,
+            397, 455, 499, 414, 423,
+            475, 428, 443, 457, 502)
+
+diferencia <- t_A - t_B
+
+normalidad <- shapiro.test(diferencia)
+print(normalidad)
+
+alfa <- 0.05
+valor_nulo <- 0
+
+#prueba t a la diferencia de las muestras
+prueba1 <- t.test(diferencia,
+                  alternative = "two.sided",
+                  mu = valor_nulo,
+                  conf.level = 1 - alfa)
+print(prueba1)
+#aplicar t test a las muestras pareadas
+prueba2 <- t.test(x = t_A,
+                  y = t_B,
+                  paired = TRUE,
+                  alternative = "two.sided",
+                  mu = valor_nulo,
+                  conf.level = 1 - alfa)
+print(prueba2)
+
+```
+

@@ -1,0 +1,19 @@
+---
+title: "Wilson_2_prop"
+output: html_document
+date: "2024-05-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+n <- c(48, 42)
+exitos <- c(26, 20)
+alfa <- 0.05
+
+prueba <- prop.test(exitos, n = n, alternative = "two.sided", conf.level = 1 - alfa)
+print(prueba)
+```
+

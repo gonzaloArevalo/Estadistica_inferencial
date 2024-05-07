@@ -1,0 +1,53 @@
+---
+title: "T_una muestra"
+output: html_document
+date: "2024-05-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggpubr)
+
+Tiempo <- c(411, 393, 445, 411, 498,
+            388, 430, 469, 409, 442,
+            418, 408, 463, 407, 516)
+
+n <- length(Tiempo)
+grados_libertad <- n -1
+valor_nulo <- 500
+
+g <- ggqqplot(data = data.frame(Tiempo),
+              x = "Tiempo",
+              color = "steelblue",
+              xlab = "Teorico",
+              ylab = "muestra",
+              title = "Grafico Q-Q")
+
+print(g)
+
+alfa <- 0.05
+media <- mean(Tiempo)
+desv_est <- sd(Tiempo)
+
+error <- desv_est/sqrt(n)
+
+t <- (media - valor_nulo)/error
+
+#Calcular p
+p <- pt(t, df = grados_libertad, lower.tail = TRUE)
+
+#construir intervalo de confianza
+t_critico <- qt(alfa, df = grados_libertad, lower.tail = FALSE)
+superior <- media + t_critico*error
+
+#aplicar t student
+prueba <- t.test(Tiempo,
+                 alternative = "less",
+                 mu = valor_nulo,
+                 conf.level = 1 - alfa)
+print(prueba)
+```
+

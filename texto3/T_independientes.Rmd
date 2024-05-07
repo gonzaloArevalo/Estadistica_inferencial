@@ -1,0 +1,39 @@
+---
+title: "T_independites"
+output: html_document
+date: "2024-05-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggpubr)
+
+vacunaA <- c(411, 393, 445, 411, 498,
+            388, 430, 469, 409, 442,
+            418, 408, 463, 407, 516)
+vacunaB <- c(405, 383, 467, 435, 487,
+            397, 455, 499, 414, 423,
+            475, 428, 443, 457, 502)
+
+normalidadA <- shapiro.test(vacunaA)
+print(normalidadA)
+normalidadB <- shapiro.test(vacunaB)
+print(normalidadB)
+
+alfa <- 0.01
+prueba <- t.test(x = vacunaA,
+                 y = vacunaB,
+                 paired = FALSE,
+                 alternative = "greater",
+                 mu = 0,
+                 conf.level = 1 - alfa)
+print(prueba)
+mediaA <- mean(vacunaA)
+mediaB <- mean(vacunaB)
+diferencia <- mediaA - mediaB
+
+```
+

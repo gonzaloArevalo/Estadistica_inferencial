@@ -1,0 +1,28 @@
+---
+title: "Waldunaprop"
+output: html_document
+date: "2024-05-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+n <- 150
+p_exito <- 0.64
+alfa <- 0.05
+valor_nulo <- 0.7
+
+#construccion de intervalo de confianza
+error_est <- sqrt((p_exito * (1-p_exito))/n)
+Z_critico <- qnorm(alfa/2, lower.tail = FALSE)
+inferiror <- p_exito - Z_critico * error_est
+superior <- p_exito + Z_critico * error_est
+
+#prueba hipotesis
+error_est_hip <- sqrt((valor_nulo * (1-valor_nulo))/n)
+Z <- (p_exito - valor_nulo) / error_est_hip
+p <- pnorm(Z, lower.tail = FALSE)
+```
+

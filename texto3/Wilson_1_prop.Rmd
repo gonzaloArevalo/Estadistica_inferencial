@@ -1,0 +1,25 @@
+---
+title: "Wilson_1_prop"
+output: html_document
+date: "2024-05-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+n <- 150
+p_exito <- 0.64
+alfa <- 0.05
+valor_nulo <- 0.07
+
+#cantidad de exitos
+exitos <- p_exito * n
+
+#prueba de Wilson 
+prueba <- prop.test(exitos, n = n, p = valor_nulo, alternative = "greater",
+                    conf.level = 1 - alfa)
+print(prueba)
+```
+
