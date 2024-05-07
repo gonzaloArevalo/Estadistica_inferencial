@@ -1,0 +1,41 @@
+---
+title: "Friedman"
+output: html_document
+date: "2024-05-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+A <- c(21, 10, 7, 21, 24, 27, 17)
+B <- c(6, 21, 18, 7, 24, 13, 13)
+C <- c(13, 25, 18, 20, 24, 8, 29)
+
+Puntuacion <- c(A, B, C)
+Interfaz <- c(rep("A", length(A)),
+              rep("B", length(B)),
+              rep("C", length(C)))
+
+Sujeto <- rep(1:7, 3)
+Interfaz <- factor(Interfaz)
+datos <- data.frame(Sujeto, Puntuacion, Interfaz)
+
+#Establecer el alfa
+alfa <- 0.05
+
+#hacer prueba de Friedman
+prueba <- friedman.test(Puntuacion ~ Interfaz | Sujeto, data = datos)
+print(prueba)
+
+#Efectuar procedimeinto de post-hoc
+if(prueba$p.value < alfa){
+  post_hoc <- pairwise.wilcox.test(datos$Puntuacion, 
+                                   datos$Interfaz,
+                                   p.adjust.method = "fdr",
+                                   paired = TRUE)
+  print(post_hoc)
+}
+```
+
