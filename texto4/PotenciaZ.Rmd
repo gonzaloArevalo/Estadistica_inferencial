@@ -1,6 +1,6 @@
-library ( ggpattern )
-library ( ggplot2 )
-library ( ggpubr )
+library (ggpattern)
+library (ggplot2)
+library (ggpubr)
 
 # Valores conocidos .
 alfa <- 0.05
@@ -10,31 +10,28 @@ n <- 36
 media_nula <- 60
 sigma <- 12
 # Calcular el error est á ndar .
-SE <- sigma / sqrt ( n )
+SE <- sigma / sqrt(n)
 
 # Gr á ficar la distribuci ó n muestral de las medias si la hip ó tesis
 # nula fuera verdadera .
 
 # Primero , el gr á fico base
-g _ x _ limites <- media_nula + c ( -6 , 5) * SE
-g <- ggplot () + xlim (g_x_limites )
-g <- g + labs ( x = " Tiempo de ejecuci ó n [ s ] " , y = " Densidad " )
-g <- g + labs ( title = " Distribuci ó n muestral de las medias " )
-g <- g + theme_pubr ()
+g _x_limites <- media_nula + c( -6 , 5) * SE
+g <- ggplot () + xlim(g_x_limites)
+g <- g + labs( x = " Tiempo de ejecuci ó n [ s ] " , y = " Densidad " )
+g <- g + labs( title = " Distribuci ó n muestral de las medias " )
+g <- g + theme_pubr()
 
 # Agregamos la hip ó tesis nula
-dist_0 <- stat _ function ( fun = dnorm ,
-args = list ( mean = media _ nula , sd = SE ) ,
-geom = " area " ,
-colour = " red " , fill = " red " , alpha = 0.1)
+dist_0 <- stat_function (fun = dnorm , args = list(mean = media_nula , sd = SE),
+geom = "area" ,
+colour = "red" , fill = "red" , alpha = 0.1)
 g1 <- g + dist_0
-g1 <- g1 + geom_vline ( xintercept = media_nula , colour = " red " )
-
-
+g1 <- g1 + geom_vline( xintercept = media_nula , colour = "red")
 
 # Calcular las regiones cr í ticas de la hip ó tesis nula .
-z_critico_inferior <- qnorm ( alfa /2 , mean = media_nula , sd = SE , lower.tail = TRUE )
-z_critico_superior <- qnorm ( alfa /2 , mean = media_nula , sd = SE , lower.tail = FALSE )
+z_critico_inferior <- qnorm(alfa /2 , mean = media_nula , sd = SE , lower.tail = TRUE )
+z_critico_superior <- qnorm(alfa /2 , mean = media_nula , sd = SE , lower.tail = FALSE )
 
 
 

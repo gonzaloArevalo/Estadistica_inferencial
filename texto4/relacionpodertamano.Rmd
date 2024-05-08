@@ -1,56 +1,33 @@
-library ( ggpubr )
-library ( pwr )
-3 library ( tidyr )
-1
-2
-4
-# Valores hip ó tesis .
+library (ggpubr)
+library (pwr)
+library (tidyr)
+
+# Valores hipótesis .
 alfa <- 0.05
-7 n <- 36
-8 media _ nula <- 60
+n <- 36
+media_nula <- 60
 
 sigma <- 12
-10
+
 # Tama ñ os del efecto .
-medias _ verdaderas <- seq (50 , 70 , 0.01)
-13 deltas <- medias _ verdaderas - media _ nula
-14 deltas _ norm <- deltas / sigma
-11
-12
-15
+medias_verdaderas <- seq(50 , 70 , 0.01)
+deltas <- medias_verdaderas - media_nula
+deltas_norm <- deltas / sigma
+
 # Calcular poder de la prueba Z bilateral .
-f _ b <- function ( x ) pwr . norm . test (x , n = n , sig . level = alfa ,
-18
-alternative = " two . sided " ) [[ " power " ]]
-19 poder _ bilat <- sapply ( deltas _ norm , f _ b )
-16
-17
-20
+f_b <- function(x)pwr.norm.test(x , n = n , sig.level = alfa ,alternative = "two.sided")[["power"]]
+poder_bilat <- sapply(deltas_norm , f_b)
+
 # Calcular poder de la prueba Z con hip ó tesis
 # alternativa unilateral tipo " less ".
-23 f _ u <- function ( x ) pwr . norm . test (x , n = n , sig . level = alfa ,
-24
-alternative = " less " ) [[ " power " ]]
-25 poder _ unilat <- sapply ( deltas _ norm , f _ u )
-21
-22
-26
+f_u <- function(x)pwr.norm.test(x , n = n , sig.level = alfa , alternative = "less")[["power"]]
+poder_unilat <- sapply(deltas_norm , f_u)
 # Graficar estas curvas
-datos _ anchos <- data . frame ( deltas , poder _ bilat , poder _ unilat )
-29 datos _ largos <- datos _ anchos
-%> %
-30
-pivot _ longer ( - deltas , names _ to = " Tipo " , values _ to = " Poder " )
-31 datos _ largos [[ " Tipo " ]] <- factor ( datos _ largos [[ " Tipo " ]] ,
-32
-labels = c ( " Bilateral " , " Unilateral " ) )
-33 g <- ggline ( datos _ largos , x = " deltas " , y = " Poder " ,
-34
-color = " Tipo " ,
-35
-numeric . x . axis = TRUE , plot _ type = " l "
-36 )
-37 g <- g + labs ( x = " Delta [ s ] " )
-38 g <- g + labs ( title = " Relaci ó n entre poder y tama ñ o del efecto " )
-39 g <- ggpar (g , legend = c (.85 , .35) )
-40 print ( g )
+datos_anchos <- data.frame(deltas , poder_bilat , poder_unilat)
+datos_largos <- datos_anchos %>% pivot_longer(-deltas, names_to = "Tipo", values_to = "Poder")
+datos_largos[["Tipo"]] <- factor(datos_largos[["Tipo"]], labels = c("Bilateral", "Unilateral"))
+g <- ggline(datos_largos , x = "deltas" , y = "Poder" , color = "Tipo" ,numeric.x.axis = TRUE , plot_type = "l")
+g <- g + labs( x = " Delta [ s ] " )
+g <- g + labs( title = " Relaci ó n entre poder y tama ñ o del efecto " )
+g <- ggpar(g , legend = c(.85 , .35))
+print (g)

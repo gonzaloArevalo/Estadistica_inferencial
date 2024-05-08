@@ -1,62 +1,34 @@
-library ( ggpubr )
-library ( pwr )
-3 library ( tidyr )
-1
-2
-4
-# Valores hip ó tesis .
+library (ggpubr)
+library (pwr)
+library (tidyr)
+
+# Valores hipótesis .
 alfa <- 0.05
-7 media _ nula <- 60
-8 sigma <- 12
-5
-6
-9
-10
-# Tama ñ o del efecto .
-media _ verdadera <- 55.8
-delta <- media _ verdadera - media _ nula
-13 delta _ norm <- delta / sigma
-11
-12
-14
-15
-16
-# Tama ñ os de la muestra .
-ns <- seq (1 , 130 , 0.1)
-17
+media_nula <- 60
+sigma <- 12
+
+#Tamaño del efecto .
+media_verdadera <- 55.8
+delta <- media_verdadera - media_nula
+delta_norm <- delta / sigma
+
+#Tamaños de la muestra .
+ns <- seq(1 , 130 , 0.1)
 # Calcular poder de la prueba Z bilateral .
-f _ b <- function ( x ) pwr . norm . test ( delta _ norm , n = x , sig . level = alfa ,
-20
-alternative = " two . sided " ) [[ " power " ]]
-21 poder _ bilat <- sapply ( ns , f _ b )
-18
-19
-22
-# Calcular poder de la prueba Z con hip ó tesis
+f_b <- function(x)pwr.norm.test(delta_norm , n = x , sig.level = alfa , alternative = "two.sided" )[["power"]]
+poder_bilat <- sapply (ns ,f_b)
+
+# Calcular poder de la prueba Z con hipótesis
 # alternativa unilateral tipo " less ".
-25 f _ u <- function ( x ) pwr . norm . test ( delta _ norm , n = x , sig . level = alfa ,
-26
-alternative = " less " ) [[ " power " ]]
-27 poder _ unilat <- sapply ( ns , f _ u )
-23
-24
-28
+f_u <- function(x)pwr.norm.test(delta_norm , n = x , sig.level = alfa , alternative = "less")[["power"]]
+poder_unilat <- sapply (ns , f_u)
+
 # Graficar estas curvas
-datos _ anchos <- data . frame ( ns , poder _ bilat , poder _ unilat )
-31 datos _ largos <- datos _ anchos
-%> %
-32
-pivot _ longer ( - ns , names _ to = " Tipo " , values _ to = " Poder " )
-33 datos _ largos [[ " Tipo " ]] <- factor ( datos _ largos [[ " Tipo " ]] ,
-34
-labels = c ( " Bilateral " , " Unilateral " ) )
-35 g <- ggline ( datos _ largos , x = " ns " , y = " Poder " ,
-36
-color = " Tipo " ,
-37
-numeric . x . axis = TRUE , plot _ type = " l "
-38 )
-39 g <- g + labs ( x = " Tama ñ o de la muestra " )
-40 g <- g + labs ( title = " Relaci ó n entre poder y tama ñ o de la muestra " )
-41 g <- ggpar (g , legend = c (.85 , .35) )
-42 print ( g )
+datos_anchos <- data.frame ( ns , poder_bilat , poder_unilat)
+datos_largos <- datos_anchos %>% pivot_longer (-ns , names_to = "Tipo" , values_to = "Poder")
+datos_largos[["Tipo"]] <- factor(datos_largos[["Tipo"]] , labels = c("Bilateral", "Unilateral"))
+g <- ggline(datos_largos , x = "ns" , y = "Poder" ,color = "Tipo", numeric.x.axis = TRUE , plot_type = "l")
+g <- g + labs( x = "Tamaño de la muestra")
+g <- g + labs( title = "Relación entre poder y tamaño de la muestra")
+g <- ggpar(g , legend = c(.85 ,.35))
+print (g)

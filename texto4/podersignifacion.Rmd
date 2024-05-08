@@ -1,51 +1,28 @@
 media _ nula <- 60
 sigma <- 12
-9
-# Tama ñ o del efecto .
-media _ verdadera <- 55.8
-12 delta <- media _ verdadera - media _ nula
-13 delta _ norm <- delta / sigma
-10
-11
-14
-15
-16
+
+# Tamaño del efecto .
+media_verdadera <- 55.8
+delta <- media_verdadera - media_nula
+delta_norm <- delta / sigma
+
 # Niveles de significaci ó n
-alfas <- seq (0.001 , 0.15 , 0.001)
-17
+alfas <- seq(0.001 , 0.15 , 0.001)
 # Calcular poder de la prueba Z bilateral .
-f _ b <- function ( x ) pwr . norm . test ( delta _ norm , n = n , sig . level = x ,
-20
-alternative = " two . sided " ) [[ " power " ]]
-21 poder _ bilat <- sapply ( alfas , f _ b )
-18
-19
-22
+f_b <- function(x)pwr.norm.test(delta_norm , n = n , sig.level = x , alternative = "two.sided")[["power"]]
+poder_bilat <- sapply ( alfas , f_b)
+
 # Calcular poder de la prueba Z con hip ó tesis
 # alternativa unilateral tipo " less ".
-25 f _ u <- function ( x ) pwr . norm . test ( delta _ norm , n = n , sig . level = x ,
-26
-alternative = " less " ) [[ " power " ]]
-27 poder _ unilat <- sapply ( alfas , f _ u )
-23
-24
-28
+f_u <- function(x)pwr.norm.test(delta_norm , n = n , sig.level = x ,alternative = "less")[["power"]]
+poder_unilat <- sapply ( alfas , f_u )
+
 # Graficar estas curvas
-datos _ anchos <- data . frame ( alfas , poder _ bilat , poder _ unilat )
-31 datos _ largos <- datos _ anchos
-%> %
-32
-pivot _ longer ( - alfas , names _ to = " Tipo " , values _ to = " Poder " )
-33 datos _ largos [[ " Tipo " ]] <- factor ( datos _ largos [[ " Tipo " ]] ,
-34
-labels = c ( " Bilateral " , " Unilateral " ) )
-35 g <- ggline ( datos _ largos , x = " alfas " , y = " Poder " ,
-36
-color = " Tipo " ,
-37
-numeric . x . axis = TRUE , plot _ type = " l "
-38 )
-39 g <- g + labs ( x = " Nivel de significaci ó n " )
-40 g <- g + labs ( title = " Relaci ó n entre poder y nivel de significaci ó n " )
-41 g <- ggpar (g , legend = c (.85 , .35) )
+datos_anchos <- data.frame ( alfas , poder_bilat , poder_unilat )
+datos_largos <- datos_anchos %>% pivot_longer ( -alfas , names_to = "Tipo" , values_to = "Poder")
+datos_largos[["Tipo"]] <- factor( datos_largos[["Tipo"]] , labels = c("Bilateral", "Unilateral"))
+g <- ggline(datos_largos , x = "alfas" , y = "Poder" , color = "Tipo" ,numeric.x.axis = TRUE , plot_type = "l")
+g <- g + labs( x = "Nivel de significación")
+g <- g + labs( title = " Relación entre poder y nivel de significación" )
+g <- ggpar(g , legend = c(.85 , .35))
 print(g)
