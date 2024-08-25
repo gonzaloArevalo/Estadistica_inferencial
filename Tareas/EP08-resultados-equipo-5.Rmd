@@ -1,0 +1,177 @@
+---
+title: "EP08-resultados-equipo-5"
+output: html_document
+date: "2024-04-30"
+---
+
+```{r libraries, message=FALSE, warning=FALSE, include=FALSE}
+library(ez)
+library(tidyverse)
+library(permute)
+library(ggpubr)
+library(WRS2)
+library(exactRankTests)
+```
+
+#Como habíamos visto a comienzos del semestre, la Encuesta de Caracterización Socioeconómica Nacional (Casen) es realizada por el Ministerio de Desarrollo Social de forma periódica para conocer la situación de los hogares chilenos con relación a aspectos demográficos, de educación, salud, vivienda, trabajo e ingresos. Es la principal fuente de información para estimar la magnitud de la pobreza y la distribución del ingreso en el país.
+
+#Se tiene a disposición un archivo CSV con un subconjunto de los datos obtenidos en la Casen 2017. El equipo debe revisar las columnas disponibles en este archivo según la descripción en el libro de códigos de la encuesta, que también queda disponible para este ejercicio. Es importante notar que en esta encuesta hay datos de carácter colectivo sobre “el hogar” del entrevistado, pero también hay datos de carácter individual, que se refieren “al jefe o la jefa de hogar” (no al entrevistado).
+```{r}
+datos <- read.csv2("EP08 Datos CASEN 2017.csv")
+```
+
+#Propongan una pregunta de investigación original, que involucre la comparación de una frecuencia de un evento o característica en dos grupos independientes (más abajo se dan unos ejemplos). Fijando una semilla propia, seleccionen una muestra aleatoria de hogares (100 < n < 150) y respondan la pregunta propuesta utilizando el método Monte Carlo.
+```{r}
+set.seed(435)
+#Pregunta: ¿El ingreso total del hogar corregido (ytotcorh) en la region metropolitana (region), es mayor en hombres que en mujeres (sexo)?
+
+#se obtienen los datos aleatorios
+datosrandom <- datos %>% filter(region == "Regi�n Metropolitana de Santiago") %>% sample_n(size = sample(100:150, 1), replace = FALSE)
+
+#Se formulan las hipótesis
+#Ho -> La proporcion del ingreso total del hogar corregido en la region metropolitana es similar entre hombres y mujeres
+
+#Ha -> La proporción del ingreso total del hogar corregido en la region metropolitana, es mayor en hombres que en mujeres
+
+#Ho: propH = propM
+#Ha: propH > propM
+
+#El estadístico a remuestrear será la media, y de esta manera, intentar saber si existe una diferencia significativa entre las medias de hombres y mujeres.
+
+#se obtiene los valores para hombres y mujeres
+hombres = datosrandom %>% filter(sexo == "Hombre") %>% select(ytotcorh)
+hombres = as.numeric(unlist(hombres))
+mujeres = datosrandom %>% filter(sexo == "Mujer") %>% select(ytotcorh)
+mujeres = as.numeric(unlist(mujeres))
+
+#Establecemos la cantidad de repeticiones
+R = 3999
+
+#A continuación se definen varias funciones para finalmente poder hacer la prueba de permutaciones
+#Función para obtener una permutación
+obtiene_permutacion = function(i, muestra_1, muestra_2) {
+  n_1 = length(muestra_1)
+  combinada = c(muestra_1, muestra_2)
+  n = length(combinada)
+  permutacion = sample(combinada, n, replace = FALSE)
+  nueva_1 = permutacion[1:n_1]
+  nueva_2 = permutacion[(n_1+1):n]
+  return(list(nueva_1, nueva_2))
+}
+
+#Función para calcular la diferencia de un estadístico (para nuestro caso FUN = mean) entre dos muestras
+calcular_diferencia = function(muestras, FUN) {
+  muestra_1 = muestras[[1]]
+  muestra_2 = muestras[[2]]
+  diferencia = FUN(muestra_1) - FUN(muestra_2)
+  return(diferencia)
+}
+
+#Función para calcular el p-value, en nuestro caso alternative = greater
+calcular_valor_p = function(distribucion, valor_observado ,
+                            repeticiones, alternative) {
+  if(alternative == "two.sided") {    
+    numerador = sum(abs(distribucion) > abs(valor_observado)) + 1
+    denominador = repeticiones + 1
+    valor_p = numerador/denominador
+    }
+  else if(alternative == "greater") {
+    numerador = sum(distribucion > valor_observado) + 1
+    denominador = repeticiones + 1
+    valor_p = numerador/denominador
+    }
+  else {
+    numerador = sum(distribucion < valor_observado) + 1
+    denominador = repeticiones + 1
+    valor_p = numerador/denominador
+    }
+  return(valor_p)
+}
+
+#Función para graficar una distribución
+graficar_distribucion = function(distribucion, ...) {
+  observaciones = data.frame(distribucion)
+  
+  histograma = gghistogram(observaciones, x = "distribucion",
+                           xlab = "Estadístico de interés",
+                           ylab = "Frecuencia", bins = 30, ...)
+  
+  qq = ggqqplot(observaciones, x = "distribucion", ...)
+  
+  figura = ggarrange(histograma, qq, ncol = 2, nrow = 1)
+  print(figura)
+}
+
+#Función para hacer la prueba de permutaciones
+contrastar_hipotesis_permutaciones = function(muestra_1, muestra_2,
+                                              repeticiones, FUN,
+                                              alternative, plot, ...) {
+  cat("Prueba de permutaciones\n\n")
+  cat("Hipótesis alternativa: ", alternative, "\n")
+  observado = calcular_diferencia(list(muestra_1, muestra_2), FUN)
+  cat("Valor observado: ", observado, "\n")
+
+  
+  n_1 = length(muestra_1)
+  
+  #Generar permutaciones.
+  permutaciones = lapply(1:repeticiones, obtiene_permutacion, muestra_1,
+                         muestra_2)
+  
+  #Generar la distribución.
+  distribucion = sapply(permutaciones, calcular_diferencia, FUN)
+  
+  #Graficar la distribución.
+  if(plot) {
+    graficar_distribucion(distribucion, ...)
+    }
+  
+  #Calcular el valor p.
+  valor_p = calcular_valor_p(distribucion, observado, repeticiones,
+                                      alternative)
+  
+  cat("Valor p: ", valor_p, "\n\n")
+}
+
+contrastar_hipotesis_permutaciones(hombres, mujeres, repeticiones = R, FUN = mean, alternative = "greater", plot = TRUE, color = "blue", fill = "blue")
+
+
+#Dado el valor de p-value es superior a 0.05 se puede concluir, con un 95% de confianza, que no hay suficiente evidencia para rechazar la hipótesis nula y por ende no existe una distinción en el ingreso total del hogar corregido, entre las proporciones de hombres y mujeres de la región metropolitana
+```
+
+#Propongan una pregunta de investigación original, que involucre la comparación de las medias de más de dos grupos independientes (más abajo se dan unos ejemplos). Fijando una semilla distinta a la anterior, seleccionen una muestra aleatoria de hogares (200 < n < 300) y respondan la pregunta propuesta utilizando bootstrapping. Solo por ejercicio académico, aplique un análisis post-hoc con bootstrapping aunque este no fuera necesario.
+```{r}
+set.seed(385)
+# Dada la actividad se formula la siguiente pregunta
+# ¿son las horas de trabajo(o10) similares entre las regiones de Chile (Metropolitana, Tarapacá, Libertador Bernardo O'higgins)?
+
+#h0 -> las horas de trabajo de las tres regiones son similares (u1 = u2 = u3)
+#h1 -> existe diferencia en las horas de trabajo en al menos un par de regiones (u1 != u2, u1 != u3, u2 != u3)
+# Se usará un nivel de significación de 0.05
+
+# filtramos los datos que nos interesan y obtenemos una muestra de tamaño 250
+datos2 <- datos %>% filter(region %in% c( "Regi�n Metropolitana de Santiago","Regi�n de Tarapac�", "Regi�n del Libertador Gral. Bernardo O�Higgins"))
+datos2 = datos2 %>% select(region, o10)
+datos2 = na.omit(datos2)
+muestra2 <- datos2 %>% sample_n(250, replace = FALSE)
+
+# Comprobamos la normalidad de los datos con un gráfico qq.
+g = ggqqplot(datos2, 
+         x = "o10", 
+         y = "region",
+         color = "region")
+g = g + facet_wrap(~ region)
+g
+
+#Tal como se ve en los gráficos la normalidad no se cumple, por lo que, se utilizara un remuestreo con bootstrap, usando la función t1waybt del paquete WRS2, que compara las medias entre grupos.
+#Se realizan 9999 muestras con bootstrap
+bootstrap = t1waybt(o10 ~ region, data = muestra2, nboot = 9999)
+bootstrap
+
+#en este caso se observa un p-value = 0.305 por lo que, se dice, con un 95% de confianza que no se puede rechazar la hipótesis nula
+#En este caso no es necesario aplicar el procedimiento post-hoc, pero igualmente se realiza a continuación
+post_hoc = mcppb20(o10 ~ region, data = muestra2, nboot = 9999)
+post_hoc
+```
+Finalmente como los p-values de la prueba post-hoc son todos mayores a 0.05, se concluye, con un 95% de confianza, que las horas de las tres regiones son similares, debido a falta de datos que prueben lo contrario.
+

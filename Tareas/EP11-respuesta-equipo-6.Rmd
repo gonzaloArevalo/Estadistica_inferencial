@@ -1,0 +1,538 @@
+---
+title: "EP11-respuesta-equipo-6"
+author: 
+date: "2024-08-14"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+if (!requireNamespace('EnvStats', quietly = TRUE)){
+  install.packages('EnvStats')
+}
+if (!requireNamespace('tidyverse', quietly = TRUE)){
+  install.packages('tidyverse')
+}
+if (!requireNamespace('caret', quietly = TRUE)){
+  install.packages('caret')
+}
+if (!requireNamespace('ggpubr', quietly = TRUE)){
+  install.packages('ggpubr')
+}
+if (!requireNamespace('leaps', quietly = TRUE)){
+  install.packages('leaps')
+}
+if (!requireNamespace('car', quietly = TRUE)){
+  install.packages('car')
+}
+if (!requireNamespace('ggfortify', quietly = TRUE)){
+  install.packages('ggfortify')
+}
+if (!requireNamespace('psych', quietly = TRUE)){
+  install.packages('psych')
+}
+if (!requireNamespace('pROC', quietly = TRUE)){
+  install.packages('pROC')
+}
+
+library(EnvStats)
+library(ggpubr)
+library(tidyverse)
+library(caret)
+library(leaps)
+library(car)
+library(ggfortify)
+library(psych)
+library(pROC)
+
+```
+
+Para este ejercicio usaremos los datos de medidas anatómicas recolectados por Heinz et al. (2003) que ya hemos utilizado en los ejercicios prácticos anteriores (disponibles en el archivo "EP09 Datos.csv"), con la adición de las variables IMC y EN consideradas en el ejercicio práctico anter
+
+#1.-Definir la semilla a utilizar, que corresponde a los primeros cinco dígitos del RUN del integrante de mayor edad del equipo.
+```{r}
+
+set.seed(20818)
+# Se leen los datos
+datos <- read.csv2("EP09 Datos.csv")
+
+# Se crea la variable IMC
+datos$IMC <- datos$Weight/(datos$Height/100)^2
+
+# Separa indices de columnas por quienes tiene sobrepeso y quienes no
+datos$EN <- ifelse(datos$IMC >= 23.2, "sobrepeso", "no_sobrepeso")
+
+# Convertir EN en factor
+datos$EN <- factor(datos$EN, levels = c("sobrepeso", "no_sobrepeso"))
+levels(datos[["EN"]])
+
+```
+
+#2.-Seleccionar una muestra de 100 personas, asegurando que la mitad tenga estado nutricional “sobrepeso” y la otra mitad “no sobrepeso”.
+```{r}
+
+# Separar los datos
+datos_sobrepeso <- datos %>% filter(EN == "sobrepeso")
+datos_no_sobrepeso <- datos %>% filter(EN == "no_sobrepeso")
+
+# Seleccionar muestra
+index_sample_sobrepeso = sample(nrow(datos_sobrepeso), 50)
+index_sample_no_sobrepeso = sample(nrow(datos_no_sobrepeso), 50)
+muestra_sobrepeso <- datos_sobrepeso[index_sample_sobrepeso, ]
+muestra_no_sobrepeso <- datos_no_sobrepeso[index_sample_no_sobrepeso, ]
+
+# Combinar y mezclar las dos muestras 
+muestra <- bind_rows(muestra_sobrepeso, muestra_no_sobrepeso)
+muestra <- muestra[sample(nrow(muestra)), ]
+
+# Dividir en dos conjuntos
+datos_entrenamiento <- muestra[1:70, ]
+datos_prueba <- muestra[71:100, ]
+
+# Dividir en dos conjuntos asegurando el balanceo
+datos_entrenamiento_sobrepeso <- muestra[muestra$EN == "sobrepeso", ][1:35, ]
+datos_entrenamiento_no_sobrepeso <- muestra[muestra$EN == "no_sobrepeso", ][1:35, ]
+datos_entrenamiento <- rbind(datos_entrenamiento_sobrepeso, datos_entrenamiento_no_sobrepeso)
+datos_entrenamiento <- datos_entrenamiento[sample(nrow(datos_entrenamiento)), ]
+  
+datos_prueba_sobrepeso <- muestra[muestra$EN == "sobrepeso", ][36:50, ]
+datos_prueba_no_sobrepeso <- muestra[muestra$EN == "no_sobrepeso", ][36:50, ]
+datos_prueba <- rbind(datos_prueba_sobrepeso, datos_prueba_no_sobrepeso)
+datos_prueba <- datos_prueba[sample(nrow(datos_prueba)), ]
+
+```
+
+#3.-Usando las herramientas del paquete leaps, realizar una búsqueda exhaustiva para seleccionar entre dos y ocho predictores que ayuden a estimar la variable Peso (Weight), obviamente sin considerar las nuevas variables IMC ni EN, y luego utilizar las funciones del paquete caret para construir un modelo de regresión lineal múltiple con los predictores escogidos y evaluarlo usando bootstrapping.
+```{r}
+
+# Muestra con los predictores a seleccionar
+predictores <- datos_entrenamiento %>% select(-IMC, -EN)
+
+# Realizar la búsqueda exhasutiva de predictores
+regsubsets_fit <- regsubsets(Weight ~ ., data = predictores, nvmax = 8, nbest = 1)
+plot(regsubsets_fit)
+
+cat("\nDe lo observado en el gráfico de BICs se selecionan los siguientes predictores para la construcción del RLM: Chest.Girth, Waist.Girth, Thigh.Girth, Knee.Girth y Height.\n")
+
+# El modelo anterior se evalúa con bootstrapping de 100 repeticiones
+control <- trainControl(method = "boot", number = 100)  # Bootstrapping con 100 repeticiones
+
+# Se construye modelo con los predictores seleccionados
+modelLeaps <- train(Weight ~ Chest.Girth + Waist.Girth + 
+                      Thigh.Girth + Knee.Girth + Height, 
+                      data = datos_entrenamiento, method = "lm", trControl = control)
+
+# Resumen del modelo generado
+print(summary(modelLeaps))
+
+# Bondad de Ajuste
+########################################
+predictor <- names(coef(modelLeaps$finalModel))[-1]
+datosLeaps <- datos_entrenamiento[, c(predictor, "Weight")]
+
+resultados <- data.frame(resp_pred = fitted(modelLeaps$finalModel))
+resultados[["res_stan"]] <- rstandard(modelLeaps$finalModel)
+resultados[["dist_cook"]] <- cooks.distance(modelLeaps$finalModel)
+resultados[["apalanca"]] <- hatvalues(modelLeaps$finalModel)
+resultados[["dfbeta"]] <- dfbeta(modelLeaps$finalModel)
+resultados[["covratio"]] <- covratio(modelLeaps$finalModel)
+
+# # Residuos estandarizados con 95%
+sus1 <- which(abs(resultados[["res_stan"]]) > 1.96)
+cat("Residuos estandarizados fuera del 95%: \n", sus1, "\n")
+
+# Distancia de Cook mayor a 1
+sus2 <- which(resultados[["dist_cook"]] > 1)
+cat("Residuos con distancia de Cook alta: \n", sus2, "\n")
+
+# Apalancamiento mayor al quintuple del apalancamiento promedio
+apal_medio <- (ncol(datosLeaps) + 1)/ nrow(datosLeaps)
+sus3 <- which(resultados[["apalanca"]] > 5 * apal_medio)
+cat("Residuos de apalancamiento fuera de rango: \n", sus3, "\n")
+
+# Dfbeta mayor o igual a 1
+sus4 <- which(apply(resultados[["dfbeta"]] >= 1, 1, any))
+names(sus4) <- NULL
+cat("Residuos con DFbeta >= 1: \n", sus4, "\n")
+
+# GRÁFICO
+########################################
+
+plot(modelLeaps$finalModel)
+cat("\nSe puede apreciar a partir de los gráficos y de los estadísticos anteriores que existen casos influyentes, pero estos no afectan en gran medida al modelo de regresión, por lo tanto este es válido.\n")
+
+# Condiciones de RLM
+########################################
+
+cat("\n")
+cat("Verificación de independencia de los residuos\n")
+cat("--------------------------------------------------------\n")
+#Se comprueba independencia de los residuos
+print(durbinWatsonTest(modelLeaps$finalModel))
+cat("\nComo se obtiene un p-value = 0.526, se cumple la condición de independencia de los residuos.\n")
+
+cat("\n")
+cat("Verificación de normalidad de los residuos\n")
+cat("--------------------------------------------------------\n")
+# Comprobar normalidad
+shap = shapiro.test(modelLeaps$finalModel$residuals)
+print(shap)
+cat("\nComo se obtiene un p-value = 0.796, se cumple la condición de normalidad.\n")
+
+cat("\n")
+cat("Verificación de condición de Homocedasticidad\n")
+cat("--------------------------------------------------------\n")
+# Comprobamos homocedasticidad
+homo = ncvTest(modelLeaps$finalModel)
+print(homo)
+cat("\nComo se obtiene un p-value = 0.66, se cumple la condición de homocedasticidad.\n")
+
+cat("\n")
+cat("Verificación de colinealidad\n")
+cat("-----------------------------\n")
+# Se comprueba multicolinealidad
+multi = vif(modelLeaps$finalModel)
+cat("VIF:\n")
+print(multi)
+
+cat("\n")
+cat("VIF promedio: ")
+print(mean(multi))
+cat("\nComo se obtiene un VIF promedio = 2.81, el cuál es menor a 10, se cumple la condición de multicolinealidad.\n")
+
+# Tamaño de la muestra
+cat("\nComo se tienen 70 observaciones, se supera con creces el caso borde donde la muestra debe ser de tamaño 10 o 15 (mínimo), por lo tanto se cumple la condición.\n")
+
+```
+
+#4.-Haciendo un poco de investigación sobre el paquete caret, en particular cómo hacer Recursive Feature Elimination (RFE), construir un modelo de regresión lineal múltiple para predecir la variable IMC que incluya entre 10 y 20 predictores, seleccionando el conjunto de variables que maximice R2 y que use cinco repeticiones de validación cruzada de cinco pliegues para evitar el sobreajuste (obviamente no se debe considerar las variables Peso, Estatura ni estado nutricional –Weight, Height, EN respectivamente). 
+```{r}
+
+# Muestra con los predictores a seleccionar
+predictores2 <- datos_entrenamiento %>% select(-IMC ,-Weight, -Height, -EN)
+
+# Se determina el control del RFE
+controlRfe <- rfeControl(functions = lmFuncs,
+                         method = "repeatedcv",
+                         repeats = 5,
+                         number = 5,
+                         verbose = FALSE,
+                         saveDetails = TRUE)
+
+controlRfe$functions$selectSize <- pickSizeTolerance
+
+# Se procede a realizar el RFE
+lmRfe <- rfe(x = predictores2, 
+             y = datos_entrenamiento$IMC, 
+             metric = "Rsquared",
+             sizes = 10:20,
+             rfeControl = controlRfe)
+
+# Predictores resultantes
+cat("\nLos predictores resultantes que maximizan R² son: \n\n")
+predictors(lmRfe)
+
+# # Se construye el modelo RLM
+modelo_lmRfe <- lm(IMC ~ Gender + Knees.diameter + Ankles.diameter + Wrists.diameter + 
+                        Wrist.Minimum.Girth + Elbows.diameter + Biacromial.diameter + Calf.Maximum.Girth + 
+                        Chest.depth + Waist.Girth + Chest.diameter, datos_entrenamiento)
+
+# Resumen del modelo generado
+print(summary(modelo_lmRfe))
+
+# Bondad de Ajuste
+########################################
+predictor <- names(coef(modelo_lmRfe))[-1]
+datosRFE <- datos_entrenamiento[, c(predictor, "IMC")]
+
+resultados <- data.frame(resp_pred = fitted(modelo_lmRfe))
+resultados[["res_stan"]] <- rstandard(modelo_lmRfe)
+resultados[["dist_cook"]] <- cooks.distance(modelo_lmRfe)
+resultados[["apalanca"]] <- hatvalues(modelo_lmRfe)
+resultados[["dfbeta"]] <- dfbeta(modelo_lmRfe)
+resultados[["covratio"]] <- covratio(modelo_lmRfe)
+
+# # Residuos estandarizados con 95%
+sus1 <- which(abs(resultados[["res_stan"]]) > 1.96)
+cat("Residuos estandarizados fuera del 95%: \n", sus1, "\n")
+
+# Distancia de Cook mayor a 1
+sus2 <- which(resultados[["dist_cook"]] > 1)
+cat("Residuos con distancia de Cook alta: \n", sus2, "\n")
+
+# Apalancamiento mayor al quintuple del apalancamiento promedio
+apal_medio <- (ncol(datosRFE) + 1)/ nrow(datosRFE)
+sus3 <- which(resultados[["apalanca"]] > 5 * apal_medio)
+cat("Residuos de apalancamiento fuera de rango: \n", sus3, "\n")
+
+# Dfbeta mayor o igual a 1
+sus4 <- which(apply(resultados[["dfbeta"]] >= 1, 1, any))
+names(sus4) <- NULL
+cat("Residuos con DFbeta >= 1: \n", sus4, "\n")
+
+# GRÁFICO
+########################################
+
+plot(modelo_lmRfe)
+cat("\nSe puede apreciar a partir de los gráficos y de los estadísticos anteriores que existen casos influyentes, pero estos no afectan en gran medida al modelo de regresión, por lo tanto este es válido.\n")
+
+# Condiciones de RLM
+########################################
+
+cat("\n")
+cat("Verificación de independencia de los residuos\n")
+cat("--------------------------------------------------------\n")
+#Se comprueba independencia de los residuos
+print(durbinWatsonTest(modelo_lmRfe))
+cat("\nComo se obtiene un p-value = 0.8, se cumple la condición de independencia de los residuos.\n")
+
+cat("\n")
+cat("Verificación de normalidad de los residuos\n")
+cat("--------------------------------------------------------\n")
+# Comprobar normalidad
+shap = shapiro.test(modelo_lmRfe$residuals)
+print(shap)
+cat("\nComo se obtiene un p-value = 0.25, se cumple la condición de normalidad.\n")
+
+cat("\n")
+cat("Verificación de condición de Homocedasticidad\n")
+cat("--------------------------------------------------------\n")
+# Comprobamos homocedasticidad
+homo = ncvTest(modelo_lmRfe)
+print(homo)
+cat("\nComo se obtiene un p-value = 0.051, se cumple la condición de homocedasticidad.\n")
+
+cat("\n")
+cat("Verificación de colinealidad\n")
+cat("-----------------------------\n")
+# Se comprueba multicolinealidad
+multi = vif(modelo_lmRfe)
+cat("VIF:\n")
+print(multi)
+
+cat("\n")
+cat("VIF promedio: ")
+print(mean(multi))
+cat("\nComo se obtiene un VIF = 5.05, el cuál es menor a 10, se cumple la condición de multicolinealidad.\n")
+
+# Tamaño de la muestra
+cat("\nComo se tienen 70 observaciones, se supera con creces el caso borde donde la muestra debe ser de tamaño 10 o 15 (mínimo), por lo tanto se cumple la condición\n")
+
+```
+
+#5.-Usando RFE, construir un modelo de regresión logística múltiple para la variable EN que incluya el conjunto, de entre dos y seis, predictores que entregue la mejor curva ROC y que utilice validación cruzada dejando uno fuera para evitar el sobreajuste (obviamente no se debe considerar las variables Peso, Estatura –Weight y Height respectivamente– ni IMC).
+```{r warning=FALSE}
+
+# Muestra con los predictores a seleccionar
+predictores3 <- datos_entrenamiento %>% select(-Weight, -Height, -IMC, -EN)
+
+lrFuncs$summary <- twoClassSummary
+
+# Control del RFE
+myControl <- trainControl(
+  method = "LOOCV",
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE
+)
+
+myControlRfe <- rfeControl(functions = lrFuncs, method = "LOOCV")
+
+# Se procede a realizar el RFE con el método LOOCV
+glmRfe <- rfe(predictores3, datos_entrenamiento$EN, metric = "ROC", rfeControl = myControlRfe,
+             trControl = myControl, sizes = 2:6)
+
+
+cat("\nA través del procedimiento realizado por RFE, se obtuvieron los siguientes predictores: \n\n")
+print(predictors(glmRfe))
+
+# Se construye modelo RLM con los predictores resultantes
+modeloGlm <- glm(EN ~ Knee.Girth + Wrist.Minimum.Girth + Chest.depth + Chest.Girth + Shoulder.Girth + Wrists.diameter,
+                 family = "binomial"(link = "logit"),
+                 data = datos_entrenamiento)
+
+# Resumen del modelo generado
+print(summary(modeloGlm))
+
+# Bondad de Ajuste
+########################################
+
+predictor <- names(coef(modeloGlm))[-1]
+datos_ba <- datos_entrenamiento[, c(predictor, "EN")]
+
+resultados <- data.frame(resp_pred = fitted(modeloGlm))
+resultados[["res_stan"]] <- rstandard(modeloGlm)
+resultados[["dist_cook"]] <- cooks.distance(modeloGlm)
+resultados[["apalanca"]] <- hatvalues(modeloGlm)
+resultados[["dfbeta"]] <- dfbeta(modeloGlm)
+resultados[["covratio"]] <- covratio(modeloGlm)
+
+# Residuos estandarizados con 95%
+sus1 <- which(abs(resultados[["res_stan"]]) > 1.96)
+cat("Residuos estandarizados fuera del 95%: \n", sus1, "\n")
+
+# Distancia de Cook mayor a 1
+sus2 <- which(resultados[["dist_cook"]] > 1)
+cat("Residuos con distancia de Cook alta: \n", sus2, "\n")
+
+# Apalancamiento mayor al doble del apalancamiento promedio
+apal_medio <- (ncol(datos_entrenamiento) + 1)/ nrow(datos_entrenamiento)
+sus3 <- which(resultados[["apalanca"]] > 2 * apal_medio)
+cat("Residuos de apalancamiento fuera de rango: \n", sus3, "\n")
+
+# Dfbeta mayor o igual a 1
+sus4 <- which(apply(resultados[["dfbeta"]] >= 1, 1, any))
+names(sus4) <- NULL
+cat("Residuos con DFbeta >= 1: \n", sus4, "\n")
+
+# Condiciones de RLL
+########################################
+
+# Verificar multicolinealidad
+vifs <- vif(modeloGlm)
+
+cat("\n")
+cat("Verificación de colinealidad\n")
+cat("-----------------------------\n")
+cat("VIF:\n")
+print(vifs)
+
+cat("\n")
+cat("VIF promedio: ")
+print(mean(vifs))
+cat("\nComo se obtiene un VIF promedio = 6.07, el cuál es menor a 10, se cumple la condición de multicolinealidad.\n")
+
+# Verificar independencia de los residuos
+cat("\n")
+cat("Verificación de independencia de los residuos\n")
+cat("--------------------------------------------------------\n")
+print(durbinWatsonTest(modeloGlm))
+cat("\nComo la prueba de Durbin-Watson no resulta significativa (DW = 2,11, p = 0,656), no hay motivos para sospechar que exista una dependencia seria en el modelo.\n")
+
+# Verificar normalidad de los residuos
+cat("\n")
+cat("Verificación de la normalidad de los residuos\n")
+cat("--------------------------------------------------------\n")
+p_2 <- autoplot(modeloGlm, which = 2, label.colour = 'blue')
+p_2 <- p_2 + theme_pubr()
+print(p_2)
+cat("\nEn el gráfico generado se puede apreciar que los residuos siguen bien una distribución normal, con solo unos pocos casos que caen fuera del 95 % de ella.\n")
+
+# Verificar linealidad con los predictores
+cat("\n")
+cat("Verificación de la linealidad con los predictores\n")
+cat("--------------------------------------------------------\n")
+datos_lin_w <- datos_entrenamiento %>%
+  select(all_of(c("Knee.Girth", "Wrist.Minimum.Girth", "Chest.depth", "Chest.Girth", "Shoulder.Girth", "Wrists.diameter"))) %>%
+  mutate(Logit = psych::logit(fitted(modeloGlm)))
+
+datos_lin_l <- pivot_longer(datos_lin_w, c(Knee.Girth, Wrist.Minimum.Girth, Chest.depth, Chest.Girth, Shoulder.Girth, Wrists.diameter), names_to = "Predictor", values_to = "Valor")
+p_1 <- ggscatter(datos_lin_l, x = "Logit", y = "Valor", ylab = "Valor del")
+p_1 <- p_1 + geom_smooth(method = lm, formula = y ~ x, se = TRUE)
+p_1 <- p_1 + theme_pubr()
+p_1 <- p_1 + facet_wrap(~ Predictor, scales = "free_y")
+print(p_1)
+
+cat("\nEn los gráficos generados se puede apreciar una relación lineal clara pero con algo de dispersión con todos los predictores del modelo.\n")
+
+```
+
+#6.-Pronunciarse sobre la confiabilidad y el poder predictivo de los modelos obtenidos.
+```{r warning=FALSE}
+
+cat("\n\nConfiabilidad de los modelos:\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+
+cat("\nBasandose en los resultados de los criterios como la distancia de Cook, y los resultados de la condiciones de cada modelo, se puede concluir que estos son confiables.\n")
+
+# PODER PREDICTIVO modelLeaps
+#############################################
+
+cat("\n\nEvaluación del modelLeaps:\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+
+mse_entrenamiento <- mean(modelLeaps$finalModel$residuals**2) 
+predicciones <- predict(modelLeaps, datos_prueba)
+error <- datos_prueba[["Weight"]] - predicciones
+mse_prueba <- mean(error**2)
+cat("MSE-Entrenamiento: ", mse_entrenamiento,"\n")
+cat("MSE-Prueba: ", mse_prueba,"\n")
+
+cat("\nComo los valores del MSE-Entrenamiento y MSE-Prueba varian en casi el doble, se concluye que el modelo no se puede generalizar y por lo tanto posee un poder predictivo pobre.\n")
+
+# PODER PREDICTIVO modelo_lmRfe
+#############################################
+
+cat("\n\nEvaluación del modelo_lmRfe:\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+
+mse_entrenamiento <- mean(modelo_lmRfe$residuals**2) 
+predicciones <- predict(modelo_lmRfe, datos_prueba)
+error <- datos_prueba[["IMC"]] - predicciones
+mse_prueba <- mean(error**2)
+cat("MSE-Entrenamiento: ",mse_entrenamiento,"\n")
+cat("MSE-Prueba: ",mse_prueba,"\n")
+
+cat("\nComo los valores del MSE-Entrenamiento y MSE-Prueba son muy similiares, se concluye que el modelo no esta sobreasjutado y se puede generalizar, y por lo tanto posee un poder predictivo aceptable. Además se puede observar que los valores de MSE son bastante bajos, lo cual también sustenta que el poder predictivo del modelo es bueno.\n")
+
+# PODER PREDICTIVO modeloGlm
+#############################################
+
+cat("\n\nEvaluación del modeloGlm:\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+
+# Se define umbral
+umbral <- 0.5
+
+# Evaluar el modelo con el conjunto de prueba
+probs_p <- predict(modeloGlm, datos_prueba, type = "response")
+
+# Obtener las predicciones (con el mismo umbral)
+preds_p <- sapply(probs_p, function(p) ifelse(p >= umbral, "sobrepeso", "no_sobrepeso"))
+preds_p <- factor(preds_p, levels = levels(muestra[["EN"]]))
+
+# Graficar curva ROC, indicando AUC obtenido
+ROC_p <- roc(datos_prueba[["EN"]], probs_p)
+texto_p <- sprintf("AUC = %.2f", ROC_p[["auc"]])
+g_roc_p <- ggroc(ROC_p, color = 2)
+g_roc_p <- g_roc_p + geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1), linetype = "dashed")
+g_roc_p <- g_roc_p + annotate("text", x = 0.3, y = 0.3, label = texto_p)
+g_roc_p <- g_roc_p + theme_pubr()
+print(g_roc_p)
+
+# Calcular la matriz de confusión
+cmat_p <- table(Predicción = preds_p, Verdadero = datos_prueba[["EN"]])
+
+# Imprimir la matriz de confusión
+print(cmat_p)
+
+# Extraer valores de la matriz de confusión
+VP <- cmat_p["sobrepeso", "sobrepeso"]  # Verdaderos positivos
+VN <- cmat_p["no_sobrepeso", "no_sobrepeso"]          # Verdaderos negativos
+FP <- cmat_p["sobrepeso", "no_sobrepeso"]      # Falsos positivos
+FN <- cmat_p["no_sobrepeso", "sobrepeso"]      # Falsos negativos
+
+# Calcular la exactitud
+exactitud_p <- (VP + VN) / sum(cmat_p)
+
+# Calcular la precisión
+precision_p <- VP / (VP + FP)
+
+# Calcular la sensibilidad
+sensibilidad_p <- VP / (VP + FN)
+
+# Calcular la especificidad
+especificidad_p <- VN / (VN + FP)
+
+# Imprimir los resultados
+cat("\n\nIndicadores:\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+cat("Exactitud: ", round(exactitud_p, 3), "\n")
+cat("Precisión: ", round(precision_p, 3), "\n")
+cat("Sensibilidad: ", round(sensibilidad_p, 3), "\n")
+cat("Especificidad: ", round(especificidad_p, 3), "\n")
+
+cat("\nYa que la curva ROC del modelo se aleja bastante de la recta y este posee un AUC = 0.92 se concluye que el modelo realiza su función como clasificador y es generalizable, pero basandonos en sus indicadores se puede concluir que su poder predictivo es bastante deficiente, ya que ninguno de estos siquiera supera el 25%.\n")
+
+```
+

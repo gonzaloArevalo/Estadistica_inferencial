@@ -1,0 +1,202 @@
+---
+title: "Estadística Inferencial - EP09"
+output: html_document
+date: "2024-06-07"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if (!requireNamespace('EnvStats', quietly = TRUE)){
+  install.packages('EnvStats')
+}
+if (!requireNamespace('tidyverse', quietly = TRUE)){
+  install.packages('tidyverse')
+}
+if (!requireNamespace('car', quietly = TRUE)){
+  install.packages('car')
+}
+if (!requireNamespace('ggpubr', quietly = TRUE)){
+  install.packages('ggpubr')
+}
+
+library(EnvStats)
+library(ggpubr)
+library(tidyverse)
+library(car)
+```
+
+#1.-Definir la semilla a utilizar, que corresponde a los últimos cuatro dígitos del RUN (sin considerar el dígito verificador) del integrante de menor edad del equipo.
+
+```{r 1}
+
+# Definición de Semilla
+########################################
+
+set.seed(6527)
+
+```
+
+#2.-Seleccionar una muestra aleatoria de 100 mujeres (si la semilla es un número par) o 100 hombres (si la semilla es impar), y separar 70 casos para trabajar en la construcción de modelos y 30 para su evaluación en datos no vistos.
+
+```{r 2}
+
+# Selección de Muestra
+########################################
+
+datos <- read.csv2("EP09 Datos.csv")
+datosAl <- datos %>% filter(Gender == "1")
+Al <- sample(nrow(datosAl), 100)
+datosAl <- datosAl[Al, ]
+
+Al2 <- sample(nrow(datosAl), 70)
+datosAl2<- datosAl[Al2, ]
+datosAl3<- datosAl[-Al2, ]
+
+```
+
+#3.-Seleccionar de forma aleatoria ocho posibles variables predictoras.
+
+```{r 3}
+
+# Selección Aleatoria de Posibles Predictores
+##############################################
+datos2 = datos
+datos2$Weight <- NULL
+datos2$Height <- NULL
+columnas <- names(datos2)
+seleccion <- sample(columnas, 8)
+print(seleccion)
+
+```
+
+#4.-Seleccionar, de las otras variables, una que el equipo considere que podría ser útil para predecir la variable Peso (sin considerar la estatura), justificando bien esta selección.
+
+```{r 4}
+
+# Selección de Predictor Inicial
+########################################
+cat("Como equipo se decidió elegir la variable Age como predictor, ya que se tuvo en cuenta el hecho de que a medida que uno envejece los huesos del cuerpo se van adelgazando y debilitando, por lo que podría ser un factor influyente en el peso de una persona")
+
+```
+
+#5.-Usando el entorno R y paquetes estándares1, construir un modelo de regresión lineal simple con el predictor seleccionado en el paso anterior.
+
+```{r 5}
+
+# Construcción del Modelo Inicial
+########################################
+modelo1 <- lm(Weight ~ Age, datosAl2)
+print(summary(modelo1))
+
+```
+
+#6.-Usando herramientas estándares1 para la exploración de modelos del entorno R, buscar entre dos y cinco predictores de entre las variables seleccionadas al azar en el punto 3, para agregar al modelo de regresión lineal simple obtenido en el paso 5.
+
+```{r 6}
+
+# Selección de Predictores
+########################################
+# se utilizara selección hacia adelante
+completo <- lm(Weight ~.,datosAl2)
+print(add1(modelo1, scope = completo))
+modelo1 <- update(modelo1, . ~ . + Chest.diameter)
+print(add1(modelo1, scope = completo))
+modelo1 <- update(modelo1, . ~ . + Knee.Girth)
+print(add1(modelo1, scope = completo))
+modelo1 <- update(modelo1, . ~ . + Bitrochanteric.diameter)
+print(add1(modelo1, scope = completo))
+
+```
+
+#7.-Evaluar la bondad de ajuste (incluyendo el análisis de casos atípicos y casos influyentes) y la generalidad (condiciones para RLM) de los modelos y “arreglarlos” en caso de que presenten algún problema.
+
+```{r 7}
+
+# Bondad de Ajuste
+########################################
+modelo3 <- lm(Weight ~ Age + Chest.diameter + Knee.Girth + Bitrochanteric.diameter, datosAl2)
+predictor <- names(coef(modelo3))[-1]
+datos4 <- datosAl2[, c(predictor, "Weight")]
+
+resultados <- data.frame(resp_pred = fitted(modelo3))
+resultados[["res_stan"]] <- rstandard(modelo3)
+resultados[["dist_cook"]] <- cooks.distance(modelo3)
+resultados[["apalanca"]] <- hatvalues(modelo3)
+resultados[["dfbeta"]] <- dfbeta(modelo3)
+resultados[["covratio"]] <- covratio(modelo3)
+
+# Residuos estandarizados con 95%
+sus1 <- which(abs(resultados[["res_stan"]]) > 1.96)
+cat("Residuos estandarizados fuera del 95%: \n", sus1, "\n")
+
+# Distancia de Cook mayor a 1
+sus2 <- which(resultados[["dist_cook"]] > 1)
+cat("Residuos con distancia de Cook alta: \n", sus2, "\n")
+
+# Apalancamiento mayor al doble del apalancamiento promedio
+apal_medio <- (ncol(datos4) + 1)/ nrow(datos4)
+sus3 <- which(resultados[["apalanca"]] > 2 * apal_medio)
+cat("Residuos de apalancamiento fuera de rango: \n", sus3, "\n")
+
+# Dfbeta mayor o igual a 1
+sus4 <- which(apply(resultados[["dfbeta"]] >= 1, 1, any))
+names(sus4) <- NULL
+cat("Residuos con DFbeta >= 1: \n", sus4, "\n")
+
+# GRÁFICO
+########################################
+
+plot(modelo1)
+
+cat("Se puede apreciar a partir de los gráficos y de los estadísticos anteriores que existen casos influyentes, pero estos no afectan en gran medida al modelo de regresión, por lo tanto este es válido.\n")
+
+# Condiciones de RLM
+########################################
+#Se comprueba independencia de los residuos
+indep = durbinWatsonTest(modelo1)
+print(indep)
+cat("Como se obtiene un p-value = 0.66, se cumple la condición de independencia de los residuos")
+
+# Comprobar normalidad
+shap = shapiro.test(modelo1$residuals)
+print(shap)
+cat("Como se obtiene un p-value = 0.33, se cumple la condición de normalidad")
+
+# Comprobamos homocedasticidad
+homo = ncvTest(modelo1)
+print(homo)
+cat("Como se obtiene un p-value = 0.6, se cumple la condición de homocedasticidad")
+
+# Se comprueba multicolinealidad
+multi = vif(modelo1)
+print(mean(multi))
+cat("Como se obtiene un VIF = 1.45, el cuál es menor a 10, se cumple la condición de multicolinealidad")
+
+# Tamaño de la muestra
+cat("Como se tienen 70 observaciones, se supera con creces el caso borde donde la muestra debe ser de tamaño 10 o 15 (mínimo), por lo tanto se cumple la condición")
+
+```
+
+#8.-Evaluar el poder predictivo del modelo con los datos no utilizados para construirlo.
+
+```{r 8}
+
+# Evaluación de Capacidad Predictiva
+########################################
+# EVALUAR CON LOS DATOS NO USADOS
+# MSE ENTRENAMIENTO (el construido)
+mse_e = mean(modelo1$residuals^2)
+cat("MSE TRAINING: ", mse_e, "\n")
+
+prediccion <- predict(modelo1, datosAl3)
+print(prediccion)
+error <- datosAl3[["Weight"]] - prediccion
+mse_p = mean(error^2)
+
+cat("MSE PRUEBA: ",mse_p, "\n")
+
+cat("Como los valores del MSE TRAINING y MSE PRUEBA son similares, se puede decir que el modelo no está sobreajustado y se puede generalizar, y por lo tanto, tiene un poder predictivo aceptable")
+
+```
+
+

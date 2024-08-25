@@ -1,0 +1,349 @@
+---
+title: "EP010-respuesta-equipo-6"
+date: "2024-08-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+if (!requireNamespace('EnvStats', quietly = TRUE)){
+  install.packages('EnvStats')
+}
+if (!requireNamespace('tidyverse', quietly = TRUE)){
+  install.packages('tidyverse')
+}
+if (!requireNamespace('car', quietly = TRUE)){
+  install.packages('car')
+}
+if (!requireNamespace('ggpubr', quietly = TRUE)){
+  install.packages('ggpubr')
+}
+if (!requireNamespace('psych', quietly = TRUE)){
+  install.packages('psych')
+}
+if (!requireNamespace('ggfortify', quietly = TRUE)){
+  install.packages('ggfortify')
+}
+if (!requireNamespace('pROC', quietly = TRUE)){
+  install.packages('pROC')
+}
+
+library(EnvStats)
+library(ggpubr)
+library(tidyverse)
+library(car)
+library(ggfortify)
+library(psych)
+library(pROC)
+
+```
+Para este ejercicio usaremos los datos de medidas anatómicas recolectados por Heinz et al. (2003) que ya conocimos en el ejercicio práctico anterior (disponibles en el archivo "EP09 Datos.csv"). Como en este caso se requiere de una variable dicotómica, vamos a realizar lo siguiente:
+
+1.- El equipo crea la variable IMC (índice de masa corporal) como el peso de una persona (en kilogramos) dividida por el cuadrado de su estatura (en metros).
+2.- Si bien esta variable se usa para clasificar a las personas en varias clases de estado nutricional (bajo peso, normal, sobrepeso, obesidad, obesidad mórbida), para efectos de este ejercicio, usaremos dos clases: sobrepeso (IMC ≥ 23,2) y no sobrepeso (IMC < 23,2).
+3.- El equipo crea la variable dicotómica EN (estado nutricional) de acuerdo al valor de IMC de cada persona.
+    
+
+#1.- Definir la semilla a utilizar, que corresponde a los últimos cuatro dígitos del RUN (sin considerar el dígito verificador) del integrante de mayor edad del equipo.
+
+```{r}
+# Se leen los datos
+datos <- read.csv2("EP09 Datos.csv")
+
+# Se crea la variable IMC
+datos$IMC <- datos$Weight/(datos$Height/100)^2
+
+# Separa indices de columnas por quienes tiene sobrepeso y quienes no
+datos$EN <- ifelse(datos$IMC >= 23.2, "Sobrepeso", "No sobrepeso")
+
+# Convertir EN en factor
+datos$EN <- factor(datos$EN, levels = c("Sobrepeso", "No sobrepeso"))
+levels(datos[["EN"]])
+
+```
+
+#2.- Seleccionar una muestra de 150 mujeres (si la semilla es un número par) o 150 hombres (si la semilla es impar), asegurando que la mitad tenga estado nutricional “sobrepeso” y la otra mitad “no sobrepeso” en cada caso. Dividir esta muestra en dos conjuntos: los datos de 100 personas (50 con EN “sobrepeso”) para utilizar en la construcción de los modelos y 50 personas (25 con EN “sobrepeso”) para poder evaluarlos.
+```{r}
+
+# Se setea la seed
+set.seed(8712)
+
+# Filtrar solo mujeres
+datos_M <- datos[datos$Gender == "0", ]
+# Eliminar las columnas de IMC y Gender (no se necesitan más)
+datos_M$IMC <- NULL
+datos_M$Gender <- NULL
+
+# Separar entre mujeres con sobrepeso y no sobrepeso
+datos_sobrepeso <- datos_M[datos_M$EN == "Sobrepeso", ]
+datos_no_sobrepeso <- datos_M[datos_M$EN == "No sobrepeso", ]
+
+# Seleccionar aleatoriamente 75 muestras de cada categoría
+muestra_sobrepeso <- datos_sobrepeso[sample(nrow(datos_sobrepeso), 75), ]
+muestra_no_sobrepeso <- datos_no_sobrepeso[sample(nrow(datos_no_sobrepeso), 75), ]
+   
+# Combinar y mezclar las muestras
+datos_total <- rbind(muestra_sobrepeso, muestra_no_sobrepeso)
+datos_total <- datos_total[sample(nrow(datos_total)), ]
+
+# Dividir en dos conjuntos
+datos_entrenamiento <- datos_total[1:100, ]
+datos_prueba <- datos_total[101:150, ]
+
+# Dividir en dos conjuntos asegurando el balanceo
+datos_entrenamiento_sobrepeso <- datos_total[datos_total$EN == "Sobrepeso", ][1:50, ]
+datos_entrenamiento_no_sobrepeso <- datos_total[datos_total$EN == "No sobrepeso", ][1:50, ]
+  
+datos_entrenamiento <- rbind(datos_entrenamiento_sobrepeso, datos_entrenamiento_no_sobrepeso)
+datos_entrenamiento <- datos_entrenamiento[sample(nrow(datos_entrenamiento)), ]
+  
+datos_prueba_sobrepeso <- datos_total[datos_total$EN == "Sobrepeso", ][51:75, ]
+datos_prueba_no_sobrepeso <- datos_total[datos_total$EN == "No sobrepeso", ][51:75, ]
+  
+datos_prueba <- rbind(datos_prueba_sobrepeso, datos_prueba_no_sobrepeso)
+datos_prueba <- datos_prueba[sample(nrow(datos_prueba)), ]
+
+```
+
+#3.- Recordar las ocho posibles variables predictoras seleccionadas de forma aleatoria en el ejercicio anterior.
+```{r}
+
+# [1] "Chest.diameter"          "Calf.Maximum.Girth"
+# [3] "Gender"                  "Knee.Girth"
+# [5] "Knees.diameter"          "Biacromial.diameter"
+# [7] "Wrist.Minimum.Girth"     "Bitrochanteric.diameter"
+
+```
+
+#4.- Seleccionar, de las otras variables, una que el equipo considere que podría ser útil para predecir la clase EN, justificando bien esta selección (idealmente con literatura).
+```{r}
+
+cat("\nComo equipo consideramos que Navel.girth (circunferencia del ombligo) seria un buen predictor de la clase EN, puesto que este representa el grosor al nivel del ombligo que es donde se encuentra el estómago. Una persona con sobrepeso debería tener un Navel.girth mas alto de una persona promedio, por ende se podria llegar a deducir que tal persona tiene mayor peso\n")
+
+```
+
+#5.- Usando el entorno R, construir un modelo de regresión logística con el predictor seleccionado en el paso anterior y utilizando de la muestra obtenida.
+```{r}
+
+# Se construye modelo
+modelo <- glm(EN ~ Navel.Girth, family = binomial(link ="logit") , data = datos_entrenamiento)
+print(summary(modelo))
+
+```
+
+#6.- Usando estas herramientas para la exploración de modelos del entorno R1, buscar entre dos y cinco predictores de entre las variables seleccionadas al azar, recordadas en el punto 3, para agregar al modelo obtenido en el paso 5.
+```{r warning=FALSE}
+
+# Se construye modelo completo
+completo <- glm(EN ~ ., family = binomial(link = "logit"), data = datos_entrenamiento)
+
+# Se planea elegir las variables (de las seleccionadas al azar) con menor AIC para ir agregando al modelo
+cat("Primer paso\n")
+cat("--------------------------------------------------------\n")
+print(add1(modelo, scope = completo))
+
+# Se agrega predictor Knee.Girth por que tiene menor AIC
+modelo2 <- update(modelo, ". ~ . + Knee.Girth")
+print(summary(modelo2))
+
+cat("Segundo paso\n")
+cat("--------------------------------------------------------\n")
+print(add1(modelo2, scope = completo))
+
+# Se agrega predictor Knees.diameter por que tiene menor AIC
+modelo3 <- update(modelo2, ". ~ . + Knees.diameter")
+print(summary(modelo3))
+
+cat("Tercer paso\n")
+cat("--------------------------------------------------------\n")
+print(add1(modelo3, scope = completo))
+
+# Se agrega predictor Chest.diameter por que tiene menor AIC
+modelo4 <- update(modelo3, ". ~ . + Chest.diameter")
+print(summary(modelo4))
+
+cat("En base a lo obtenido, hemos decidido dejar solo tres predictores, ya que no hay más variables que reduzcan el AIC, por lo cual se termina el proceso y se tiene el modelo final.")
+
+```
+
+#7.- Evaluar la confiabilidad de los modelos (i.e. que tengan un buen nivel de ajuste y son generalizables) y “arreglarlos” en caso de que tengan algún problema.
+```{r warning=FALSE}
+
+# Bondad de Ajuste
+########################################
+
+predictor <- names(coef(modelo4))[-1]
+datos_ba <- datos_entrenamiento[, c(predictor, "EN")]
+
+resultados <- data.frame(resp_pred = fitted(modelo4))
+resultados[["res_stan"]] <- rstandard(modelo4)
+resultados[["dist_cook"]] <- cooks.distance(modelo4)
+resultados[["apalanca"]] <- hatvalues(modelo4)
+resultados[["dfbeta"]] <- dfbeta(modelo4)
+resultados[["covratio"]] <- covratio(modelo4)
+
+# Residuos estandarizados con 95%
+sus1 <- which(abs(resultados[["res_stan"]]) > 1.96)
+cat("Residuos estandarizados fuera del 95%: \n", sus1, "\n")
+
+# Distancia de Cook mayor a 1
+sus2 <- which(resultados[["dist_cook"]] > 1)
+cat("Residuos con distancia de Cook alta: \n", sus2, "\n")
+
+# Apalancamiento mayor al doble del apalancamiento promedio
+apal_medio <- (ncol(datos_entrenamiento) + 1)/ nrow(datos_entrenamiento)
+sus3 <- which(resultados[["apalanca"]] > 2 * apal_medio)
+cat("Residuos de apalancamiento fuera de rango: \n", sus3, "\n")
+
+# Dfbeta mayor o igual a 1
+sus4 <- which(apply(resultados[["dfbeta"]] >= 1, 1, any))
+names(sus4) <- NULL
+cat("Residuos con DFbeta >= 1: \n", sus4, "\n")
+
+# Condiciones de RLL
+########################################
+
+# Verificar multicolinealidad
+vifs <- vif(modelo4)
+
+cat("\n")
+cat("Verificación de colinealidad\n")
+cat("-----------------------------\n")
+cat("VIF:\n")
+print(vifs)
+
+cat("\n")
+cat("VIF promedio: ")
+print(mean(vifs))
+cat("\nComo se obtiene un VIF promedio = 1.48, el cuál es menor a 10, se cumple la condición de multicolinealidad.\n")
+
+# Verificar independencia de los residuos
+cat("\n")
+cat("Verificación de independencia de los residuos\n")
+cat("--------------------------------------------------------\n")
+print(durbinWatsonTest(modelo4))
+cat("\nComo la prueba de Durbin-Watson no resulta significativa (DW = 1.94, p = 0.756), no hay motivos para sospechar que exista una dependencia seria en el modelo.\n")
+
+# Verificar normalidad de los residuos
+cat("\n")
+cat("Verificación de la normalidad de los residuos\n")
+cat("--------------------------------------------------------\n")
+p_2 <- autoplot(modelo4, which = 2, label.colour = 'blue')
+p_2 <- p_2 + theme_pubr()
+print(p_2)
+cat("\nEn el gráfico generado se puede apreciar que los residuos siguen bien una distribución normal, con solo unos pocos casos que caen fuera del 95 % de ella.\n")
+
+# Verificar linealidad con los predictores
+cat("\n")
+cat("Verificación de la linealidad con los predictores\n")
+cat("--------------------------------------------------------\n")
+datos_lin_w <- datos_entrenamiento %>%
+  select(all_of(c("Navel.Girth", "Chest.diameter", "Calf.Maximum.Girth", "Knee.Girth"))) %>%
+  mutate(Logit = psych::logit(fitted(modelo4)))
+
+datos_lin_l <- pivot_longer(datos_lin_w, c(Navel.Girth, Chest.diameter, Calf.Maximum.Girth, Knee.Girth), names_to = "Predictor", values_to = "Valor")
+p_1 <- ggscatter(datos_lin_l, x = "Logit", y = "Valor", ylab = "Valor del")
+p_1 <- p_1 + geom_smooth(method = lm, formula = y ~ x, se = TRUE)
+p_1 <- p_1 + theme_pubr()
+p_1 <- p_1 + facet_wrap(~ Predictor, scales = "free_y")
+print(p_1)
+
+cat("\nEn los gráficos generados se puede apreciar una relación lineal clara con Navel.Girth y con algo de dispersión con los demás predictores.\n")
+
+```
+
+#8.- Usando código estándar1, evaluar el poder predictivo de los modelos con los datos de las 50 personas que no se incluyeron en su construcción en términos de sensibilidad y especificidad.
+```{r warning=FALSE}
+
+# Evaluar el modelo con el conjunto de entrenamiento
+probs_e <- predict(modelo4, datos_entrenamiento, type = "response")
+
+# Obtener las predicciones
+umbral <- 0.5
+preds_e <- sapply(probs_e, function(p) ifelse(p >= umbral, "Sobrepeso", "No sobrepeso"))
+preds_e <- factor(preds_e, levels = levels(datos_total[["EN"]]))
+
+# Mostrar estadísticas de clasificación
+cat("\n\nEvaluación del modelo (cjto. de entrenamiento):\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+
+# Graficar curva ROC, indicando AUC obtenido
+ROC_e <- roc(datos_entrenamiento[["EN"]], probs_e)
+texto_e <- sprintf("AUC = %.2f", ROC_e[["auc"]])
+g_roc_e <- ggroc(ROC_e, color = 2)
+g_roc_e <- g_roc_e + geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1), linetype = "dashed")
+g_roc_e <- g_roc_e + annotate("text", x = 0.3, y = 0.3, label = texto_e)
+g_roc_e <- g_roc_e + theme_pubr()
+print(g_roc_e)
+
+# Evaluar el modelo con el conjunto de prueba
+probs_p <- predict(modelo4, datos_prueba, type = "response")
+
+# Obtener las predicciones (con el mismo umbral)
+preds_p <- sapply(probs_p, function(p) ifelse(p >= umbral, "Sobrepeso", "No sobrepeso"))
+preds_p <- factor(preds_p, levels = levels(datos_total[["EN"]]))
+
+# Mostrar estadísticas de clasificación
+cat("\n\nEvaluación del modelo (cjto. de prueba):\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+
+# Graficar curva ROC, indicando AUC obtenido
+ROC_p <- roc(datos_prueba[["EN"]], probs_p)
+texto_p <- sprintf("AUC = %.2f", ROC_p[["auc"]])
+g_roc_p <- ggroc(ROC_p, color = 2)
+g_roc_p <- g_roc_p + geom_segment(aes(x = 1, xend = 0, y = 0, yend = 1), linetype = "dashed")
+g_roc_p <- g_roc_p + annotate("text", x = 0.3, y = 0.3, label = texto_p)
+g_roc_p <- g_roc_p + theme_pubr()
+print(g_roc_p)
+
+# Calcular la matriz de confusión
+cmat_e <- table(Predicción = preds_e, Verdadero = datos_entrenamiento[["EN"]])
+
+# Imprimir la matriz de confusión
+cat("\n\nEvaluación del modelo (cjto. de entrenamiento):\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+print(cmat_e)
+
+# Para el conjunto de prueba
+# Calcular la matriz de confusión
+cmat_p <- table(Predicción = preds_p, Verdadero = datos_prueba[["EN"]])
+
+# Imprimir la matriz de confusión
+cat("\n\nEvaluación del modelo (cjto. de prueba):\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+print(cmat_p)
+
+# Extraer valores de la matriz de confusión
+VP <- cmat_p["Sobrepeso", "Sobrepeso"]  # Verdaderos positivos
+VN <- cmat_p["No sobrepeso", "No sobrepeso"]          # Verdaderos negativos
+FP <- cmat_p["Sobrepeso", "No sobrepeso"]      # Falsos positivos
+FN <- cmat_p["No sobrepeso", "Sobrepeso"]      # Falsos negativos
+
+# Calcular la exactitud
+exactitud_p <- (VP + VN) / sum(cmat_p)
+
+# Calcular la precisión
+precision_p <- VP / (VP + FP)
+
+# Calcular la sensibilidad
+sensibilidad_p <- VP / (VP + FN)
+
+# Calcular la especificidad
+especificidad_p <- VN / (VN + FP)
+
+# Imprimir los resultados
+cat("\n\nIndicadores:\n")
+cat("= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \n")
+cat("Exactitud: ", round(exactitud_p, 3), "\n")
+cat("Precisión: ", round(precision_p, 3), "\n")
+cat("Sensibilidad: ", round(sensibilidad_p, 3), "\n")
+cat("Especificidad: ", round(especificidad_p, 3), "\n")
+
+cat("\nEn términos de Sensibilidad, la cual es de 0.16, indica que el modelo construido solo es capaz de identificar correctamente el 16% de los casos positivos reales, por lo cual se puede concluir que es bastante ineficaz en ese sentido.\n")
+
+cat("\nEn términos de Especificidad, la cual es de 0.2, indica que el modelo construido solo es capaz de identificar correctamente el 20% de los casos negativos reales, por lo cual se puede concluir que es bastante ineficaz en ese sentido también.\n")
+
+cat("\nPor lo tanto, según lo anterior, se puede concluir que el modelo construido tiene un bajo poder predictivo y no es eficaz para tareas donde se necesite una clasificación fiable.")
+
+```
+
