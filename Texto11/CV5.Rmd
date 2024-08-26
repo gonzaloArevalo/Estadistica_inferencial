@@ -1,0 +1,46 @@
+---
+title: "CV5"
+author: "GonzaloArevalo"
+date: "2024-08-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library ( caret )
+
+
+# Cargar los datos .
+datos <- mtcars
+# Crear conjuntos de entrenami ento y prueba .
+set.seed (101)
+n <- nrow ( datos )
+n_entrenamiento <- floor (0.7 * n )
+muestra <- sample.int ( n = n , size = n_entrenamiento , replace = FALSE )
+entrenamiento <- datos [ muestra , ]
+prueba <- datos [ - muestra , ]
+# Ajustar modelo usando validaci ó n cruzada de 5 pliegue s .
+modelo <- train ( mpg ~ wt , data = entrenamiento , method = " lm " ,
+trControl = trainControl ( method = " cv " , number = 5) )
+
+print ( summary ( modelo ) )
+
+
+# Hacer predicciones para el conjunto de entre namient o .
+predicciones_entrenamiento <- predict ( modelo , entrenamiento )
+# Calcular error cuadrado promedio para el conjunto de prueba .
+error_entrenamiento <- entrenamiento [[ " mpg " ]] - predicciones_entrenamiento
+mse_entrenamiento <- mean ( error_entrenamiento ** 2)
+cat ( " MSE para el conjunto de entrenami ento : " , mse_entrenamiento , " \ n " )
+# Hacer predicciones para el conjunto de prueba .
+predicciones_prueba <- predict ( modelo , prueba )
+
+# Calcular error cuadrado promedio para el conjunto de prueba .
+error_prueba <- prueba [[ " mpg " ]] - predicciones_prueba
+mse_prueba <- mean ( error_prueba ** 2)
+cat ( " MSE para el conjunto de prueba : " , mse_prueba )
+```
+

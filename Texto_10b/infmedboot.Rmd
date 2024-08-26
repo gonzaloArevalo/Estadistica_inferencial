@@ -1,0 +1,35 @@
+---
+title: "Ingerencia sobre media boot"
+author: "GonzaloArevalo, Ivan Misle"
+date: "2024-08-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library ( boot )
+# Crear muestra inicial , mostrar su histograma y calcul ar la media .
+muestra <- c (79 , 75 , 84 , 75 , 94 , 82 , 76 , 90 , 79 , 88)
+valor_observado <- mean ( muestra )
+datos <- data.frame ( muestra )
+# Construir distribuci ó n bootstrap .
+B <- 2000
+media <- function ( valores , i ) {
+mean ( valores [ i ])
+}
+
+set.seed (432)
+distribucion_b <- boot ( muestra , statistic = media , R = B )
+# Desplazar la distribuci ó n bootstrap para que se centr e en
+# el valor nulo .
+valor_nulo <- 75
+desplazamiento <- mean ( distribucion_b [[ " t " ]]) - valor_nulo
+distribucion_nula <- distribucion_b [[ " t " ]] - desplazamiento
+# Determinar el valor p .
+p <- ( sum ( distribucion_nula > valor_observado ) + 1) / ( B + 1)
+cat ( " Valor p : " , p )
+```
+
